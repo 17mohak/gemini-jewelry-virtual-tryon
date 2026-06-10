@@ -19,6 +19,7 @@ then shows both in a minimal frontend, with the exact generation prompt inspecta
 | Input photo | Try-on result |
 | --- | --- |
 | ![Synthetic input portrait](docs/demo/input_face.jpg) | ![Gold Cross Pendant Necklace try-on](docs/demo/result_necklace.jpg) *Gold Cross Pendant Necklace* |
+| *(same face photo)* | ![Gold Drop Earrings try-on](docs/demo/result_earrings.jpg) *Gold Drop Earrings* — the second earring is realistically occluded by hair, exactly as the prompt's occlusion rules request |
 | ![Synthetic input hand photo](docs/demo/input_hand.jpg) | ![Three-Stone Diamond Ring try-on](docs/demo/result_ring.jpg) *Three-Stone Diamond Ring* — note: the product photo contains two rings, and the per-item prompt hint correctly restricts the edit to the three-stone ring only |
 | *(same hand photo)* | ![Mughal Enamel Bangle try-on](docs/demo/result_bracelet.jpg) *Mughal Enamel Bangle* |
 
@@ -28,9 +29,9 @@ The input photos are **synthetic people generated for this demo** (no real perso
 
 ### The app itself
 
-| Home | Result in the UI |
-| --- | --- |
-| ![Home page](docs/screenshots/01_home.png) | ![Result with image and video](docs/screenshots/03_result_image_video.png) |
+| Home | Ready to try on | Result in the UI |
+| --- | --- | --- |
+| ![Home page](docs/screenshots/01_home.png) | ![Photo uploaded and item selected](docs/screenshots/02_ready_state.png) | ![Result with image and video](docs/screenshots/03_result_image_video.png) |
 
 | Video + prompt inspection | Loading | Error handling |
 | --- | --- | --- |
@@ -156,10 +157,9 @@ If credits run out, the API returns the image with a friendly `video_error` ("in
 
 ## Honest status & limitations
 
-- **Verified live:** image try-on works end-to-end for all three placement classes — necklace on a face photo, ring and bracelet on a hand photo (all results above are unedited app outputs). The LTX video step worked first try on the same pipeline.
+- **Verified live:** image try-on works end-to-end for **all four jewelry types** — necklace and earrings on a face photo, ring and bracelet on a hand photo (all results above are unedited app outputs). The LTX video step worked first try on the same pipeline.
 - **Output framing:** Nano Banana occasionally re-crops slightly (the ring result returned a mildly wider frame than the input). The prompt constrains framing, which keeps this rare, but it is not fully eliminable.
 - **Free-tier image quota is low.** Nano Banana free-tier image generation has small daily/per-minute caps; the app surfaces HTTP 429 as a clear, friendly message (screenshot above). Some Google projects have *zero* free image-gen quota — if every request 429s instantly, the fix is a key from a project with image quota, not a code change.
-- **Earrings were not live-tested** to conserve quota; they share the verified face-photo path, and the earrings prompt branch is covered by tests.
 - **Demo inputs are synthetic.** Both "users" in the demo were generated for this project so no real person's likeness ships in the repo.
 
 ### Migration note
