@@ -14,10 +14,16 @@
   </header>
 
   <main>
+    <!-- Mode switch -->
+    <div class="mode-switch" role="tablist" aria-label="Try-on mode">
+      <button id="mode-jewelry" class="mode-btn active" role="tab" aria-selected="true">Jewelry</button>
+      <button id="mode-clothing" class="mode-btn" role="tab" aria-selected="false">Clothing <span class="bonus-tag">bonus</span></button>
+    </div>
+
     <!-- Step 1: photos -->
     <section class="card" aria-labelledby="step1-h">
       <h2 id="step1-h"><span class="step" aria-hidden="true">1</span> Upload your photos</h2>
-      <p class="hint">Necklaces &amp; earrings are placed on your <strong>face photo</strong>; rings &amp; bracelets on your <strong>hand photo</strong>. Upload whichever the item you pick needs.</p>
+      <p class="hint" id="upload-hint">Necklaces &amp; earrings are placed on your <strong>face photo</strong>; rings &amp; bracelets on your <strong>hand photo</strong>. Upload whichever the item you pick needs.</p>
       <div class="uploads">
         <label class="upload-box" id="face-box">
           <input type="file" id="face-input" accept="image/jpeg,image/png,image/webp" hidden aria-label="Upload face photo" />
@@ -37,13 +43,22 @@
             <span>hand &amp; wrist · JPEG, PNG or WebP · max 8&nbsp;MB</span>
           </div>
         </label>
+        <label class="upload-box" id="body-box" hidden>
+          <input type="file" id="body-input" accept="image/jpeg,image/png,image/webp" hidden aria-label="Upload full-body photo" />
+          <img id="body-preview" class="preview" alt="Preview of your full-body photo" hidden />
+          <div class="upload-placeholder" id="body-placeholder">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="4.5" r="2.2"/><path d="M12 7v6.5m0 0-2.5 8m2.5-8 2.5 8M7 9.5l5-1.5 5 1.5"/></svg>
+            <strong>Full-body photo</strong>
+            <span>standing, head to feet · JPEG, PNG or WebP · max 8&nbsp;MB</span>
+          </div>
+        </label>
       </div>
     </section>
 
     <!-- Step 2: catalog -->
     <section class="card" aria-labelledby="step2-h">
-      <h2 id="step2-h"><span class="step" aria-hidden="true">2</span> Choose a jewelry item</h2>
-      <div id="catalog-grid" class="catalog-grid" role="listbox" aria-label="Jewelry catalog">
+      <h2 id="step2-h"><span class="step" aria-hidden="true">2</span> Choose an item</h2>
+      <div id="catalog-grid" class="catalog-grid" role="listbox" aria-label="Item catalog">
         <p class="muted">Loading catalog…</p>
       </div>
     </section>

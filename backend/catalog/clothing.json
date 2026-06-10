@@ -1,0 +1,66 @@
+{
+  "items": [
+    {
+      "id": "clothing-white-oxford",
+      "name": "White Oxford Shirt",
+      "type": "top",
+      "image": "images/clothing_white_oxford.jpg",
+      "description": "Crisp white cotton oxford button-down shirt with long sleeves, a chest pocket, white buttons and a pointed collar.",
+      "attribution": {
+        "title": "Product image generated with Nano Banana for this project",
+        "license": "Project-generated, royalty-free",
+        "source": "generated"
+      }
+    },
+    {
+      "id": "clothing-breton-top",
+      "name": "Breton Striped Top",
+      "type": "top",
+      "image": "images/clothing_breton_top.jpg",
+      "description": "Navy-blue and white horizontally striped breton long-sleeve cotton top with a boat neckline; even stripe width throughout.",
+      "prompt_hint": "The horizontal stripes must stay evenly spaced and follow the body's contours; do not change stripe width, direction or colors.",
+      "attribution": {
+        "title": "Product image generated with Nano Banana for this project",
+        "license": "Project-generated, royalty-free",
+        "source": "generated"
+      }
+    },
+    {
+      "id": "clothing-green-wrap-dress",
+      "name": "Emerald Wrap Midi Dress",
+      "type": "dress",
+      "image": "images/clothing_green_wrap_dress.jpg",
+      "description": "Emerald-green wrap midi dress with a V-neckline, short flutter sleeves, a tie waist with a side bow, and a flowing skirt that falls below the knee.",
+      "attribution": {
+        "title": "Product image generated with Nano Banana for this project",
+        "license": "Project-generated, royalty-free",
+        "source": "generated"
+      }
+    },
+    {
+      "id": "clothing-black-dress",
+      "name": "Black A-Line Dress",
+      "type": "dress",
+      "image": "images/clothing_black_dress.jpg",
+      "description": "Classic black sleeveless A-line cocktail dress with a round neckline, fitted bodice and a knee-length flared skirt.",
+      "attribution": {
+        "title": "Product image generated with Nano Banana for this project",
+        "license": "Project-generated, royalty-free",
+        "source": "generated"
+      }
+    },
+    {
+      "id": "clothing-blue-jeans",
+      "name": "Light-Blue Straight Jeans",
+      "type": "trousers",
+      "image": "images/clothing_blue_jeans.jpg",
+      "description": "Light-blue straight-leg denim jeans with a five-pocket design, visible contrast stitching and a faded wash on the thighs.",
+      "prompt_hint": "Replace only the lower-body garment; keep the person's existing top exactly as it is.",
+      "attribution": {
+        "title": "Product image generated with Nano Banana for this project",
+        "license": "Project-generated, royalty-free",
+        "source": "generated"
+      }
+    }
+  ]
+}

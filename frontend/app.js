@@ -1,14 +1,31 @@
-/* Jewelry Virtual Try-On — minimal frontend logic (no frameworks). */
+/* Jewelry & Clothing Virtual Try-On — minimal frontend logic (no frameworks). */
 
 const state = {
-  catalog: [],
+  mode: "jewelry", // "jewelry" | "clothing"
+  catalogs: {}, // mode -> items
   selectedItem: null,
   faceFile: null,
   handFile: null,
+  bodyFile: null,
   busy: false,
 };
 
 const $ = (id) => document.getElementById(id);
+
+const MODE_CONFIG = {
+  jewelry: {
+    endpoint: "/api/catalog",
+    hint: "Necklaces & earrings are placed on your <strong>face photo</strong>; rings & bracelets on your <strong>hand photo</strong>. Upload whichever the item you pick needs.",
+    boxes: ["face", "hand"],
+  },
+  clothing: {
+    endpoint: "/api/catalog/clothing",
+    hint: "Clothing is tried on against a <strong>full-body photo</strong> — standing, head to feet, facing the camera.",
+    boxes: ["body"],
+  },
+};
+
+const PHOTO_NOUN = { face: "face", hand: "hand", body: "full-body" };
 
 const LOADING_MESSAGES = {
   image: "Generating your try-on image with Nano Banana… (~15–60 s)",
@@ -41,21 +58,48 @@ function wireUpload(kind) {
   });
 }
 
+/* ── Mode switch ── */
+
+function setMode(mode) {
+  if (state.mode === mode || state.busy) return;
+  state.mode = mode;
+  state.selectedItem = null;
+
+  for (const m of ["jewelry", "clothing"]) {
+    const btn = $(`mode-${m}`);
+    btn.classList.toggle("active", m === mode);
+    btn.setAttribute("aria-selected", String(m === mode));
+  }
+  $("upload-hint").innerHTML = MODE_CONFIG[mode].hint;
+  for (const kind of ["face", "hand", "body"]) {
+    $(`${kind}-box`).hidden = !MODE_CONFIG[mode].boxes.includes(kind);
+  }
+  hideError();
+  loadCatalog();
+  updateReadiness();
+}
+
 /* ── Catalog ── */
 
 async function loadCatalog() {
+  const mode = state.mode;
   const grid = $("catalog-grid");
-  try {
-    const resp = await fetch("/api/catalog");
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    state.catalog = await resp.json();
-  } catch (err) {
-    grid.innerHTML = `<p class="error">Could not load the catalog (${err.message}). Is the backend running?</p>`;
-    return;
+
+  if (!state.catalogs[mode]) {
+    grid.innerHTML = '<p class="muted">Loading catalog…</p>';
+    try {
+      const resp = await fetch(MODE_CONFIG[mode].endpoint);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      state.catalogs[mode] = await resp.json();
+    } catch (err) {
+      grid.innerHTML = `<p class="error">Could not load the catalog (${err.message}). Is the backend running?</p>`;
+      return;
+    }
   }
+  if (state.mode !== mode) return; // user switched again while fetching
 
   grid.innerHTML = "";
-  for (const item of state.catalog) {
+  for (const item of state.catalogs[mode]) {
     const card = document.createElement("div");
     card.className = "catalog-item";
     card.dataset.id = item.id;
@@ -65,7 +109,7 @@ async function loadCatalog() {
     card.innerHTML = `
       <img src="${item.image_url}" alt="${item.name}" loading="lazy" />
       <div class="name">${item.name}</div>
-      <span class="badge">${item.type} · needs ${item.photo_kind} photo</span>
+      <span class="badge">${item.type} · needs ${PHOTO_NOUN[item.photo_kind]} photo</span>
     `;
     const select = () => selectItem(item, card);
     card.addEventListener("click", select);
@@ -99,17 +143,18 @@ function updateReadiness() {
   const item = state.selectedItem;
 
   if (!item) {
-    note.textContent = "Pick a jewelry item above to get started.";
+    note.textContent = "Pick an item above to get started.";
     btn.disabled = true;
     return;
   }
-  const needed = item.photo_kind; // "face" | "hand"
-  const file = needed === "face" ? state.faceFile : state.handFile;
+  const needed = item.photo_kind; // "face" | "hand" | "body"
+  const file = state[`${needed}File`];
+  const noun = PHOTO_NOUN[needed];
   if (!file) {
-    note.textContent = `“${item.name}” is a ${item.type} — it needs your ${needed} photo. Upload it in step 1.`;
+    note.textContent = `“${item.name}” is a ${item.type} — it needs your ${noun} photo. Upload it in step 1.`;
     btn.disabled = true;
   } else {
-    note.textContent = `Ready: “${item.name}” will be placed on your ${needed} photo.`;
+    note.textContent = `Ready: “${item.name}” will be placed on your ${noun} photo.`;
     btn.disabled = state.busy;
   }
 }
@@ -126,6 +171,7 @@ async function tryOn() {
   form.append("generate_video", wantVideo ? "true" : "false");
   if (state.faceFile) form.append("face_photo", state.faceFile);
   if (state.handFile) form.append("hand_photo", state.handFile);
+  if (state.bodyFile) form.append("body_photo", state.bodyFile);
 
   setBusy(true, wantVideo ? LOADING_MESSAGES.video : LOADING_MESSAGES.image);
 
@@ -197,6 +243,9 @@ function hideError() {
 
 wireUpload("face");
 wireUpload("hand");
+wireUpload("body");
 loadCatalog();
 updateReadiness();
 $("tryon-btn").addEventListener("click", tryOn);
+$("mode-jewelry").addEventListener("click", () => setMode("jewelry"));
+$("mode-clothing").addEventListener("click", () => setMode("clothing"));

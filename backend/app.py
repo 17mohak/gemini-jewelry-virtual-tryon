@@ -34,7 +34,12 @@ from backend.config import (
     UPLOADS_DIR,
     settings,
 )
-from backend.services import ltx_service, nanobanana_service, prompt_builder
+from backend.services import (
+    clothing_prompt_builder,
+    ltx_service,
+    nanobanana_service,
+    prompt_builder,
+)
 from backend.services.ltx_service import LTXError
 from backend.services.nanobanana_service import NanoBananaError
 
@@ -67,10 +72,19 @@ def load_catalog() -> list[dict]:
         return json.load(fh)["items"]
 
 
-def get_item(item_id: str) -> dict:
+def load_clothing_catalog() -> list[dict]:
+    with open(CATALOG_DIR / "clothing.json", encoding="utf-8") as fh:
+        return json.load(fh)["items"]
+
+
+def resolve_item(item_id: str) -> tuple[dict, str]:
+    """Find an item in either catalog; returns (item, category)."""
     for item in load_catalog():
         if item["id"] == item_id:
-            return item
+            return item, "jewelry"
+    for item in load_clothing_catalog():
+        if item["id"] == item_id:
+            return item, "clothing"
     raise HTTPException(status_code=404, detail=f"Unknown catalog item: {item_id}")
 
 
@@ -97,7 +111,8 @@ class TryOnResponse(BaseModel):
     request_id: str
     item_id: str
     item_name: str
-    jewelry_type: str
+    category: str  # "jewelry" | "clothing"
+    item_type: str
     photo_kind: str
     image_url: str
     video_url: Optional[str] = None
@@ -133,6 +148,21 @@ def catalog() -> list[CatalogItemOut]:
     ]
 
 
+@app.get("/api/catalog/clothing", response_model=list[CatalogItemOut])
+def clothing_catalog() -> list[CatalogItemOut]:
+    return [
+        CatalogItemOut(
+            id=item["id"],
+            name=item["name"],
+            type=item["type"],
+            description=item["description"],
+            image_url=f"/catalog/{item['image']}",
+            photo_kind=clothing_prompt_builder.required_photo_kind(item["type"]),
+        )
+        for item in load_clothing_catalog()
+    ]
+
+
 def _validate_and_save_upload(upload: UploadFile, dest: Path) -> None:
     """Validate an uploaded photo and save a normalized JPEG copy."""
     if upload.content_type not in ALLOWED_UPLOAD_TYPES:
@@ -165,27 +195,34 @@ def tryon(
     item_id: str = Form(...),
     face_photo: Optional[UploadFile] = File(None),
     hand_photo: Optional[UploadFile] = File(None),
+    body_photo: Optional[UploadFile] = File(None),
     # Video is opt-in: LTX bills per generated second, so the default must
     # never spend credits without the user explicitly asking for it.
     generate_video: bool = Form(False),
 ) -> TryOnResponse:
-    item = get_item(item_id)
-    jewelry_type = item["type"]
-    photo_kind = prompt_builder.required_photo_kind(jewelry_type)
+    item, category = resolve_item(item_id)
+    item_type = item["type"]
 
-    # Type-aware photo selection: necklace/earrings -> face, ring/bracelet -> hand
-    upload = face_photo if photo_kind == prompt_builder.PHOTO_KIND_FACE else hand_photo
+    # Type-aware photo selection: necklace/earrings -> face,
+    # ring/bracelet -> hand, top/dress/trousers -> full-body.
+    if category == "jewelry":
+        photo_kind = prompt_builder.required_photo_kind(item_type)
+    else:
+        photo_kind = clothing_prompt_builder.required_photo_kind(item_type)
+    uploads_by_kind = {"face": face_photo, "hand": hand_photo, "body": body_photo}
+    upload = uploads_by_kind[photo_kind]
     if upload is None or not upload.filename:
+        noun = "full-body" if photo_kind == "body" else photo_kind
         raise HTTPException(
             status_code=400,
-            detail=f"'{item['name']}' is a {jewelry_type}, which needs a "
-            f"{photo_kind} photo. Please upload your {photo_kind} photo.",
+            detail=f"'{item['name']}' is a {item_type}, which needs a "
+            f"{noun} photo. Please upload your {noun} photo.",
         )
 
     request_id = uuid.uuid4().hex[:12]
     logger.info(
-        "tryon start request_id=%s item=%s type=%s photo_kind=%s video=%s",
-        request_id, item_id, jewelry_type, photo_kind, generate_video,
+        "tryon start request_id=%s item=%s category=%s type=%s photo_kind=%s video=%s",
+        request_id, item_id, category, item_type, photo_kind, generate_video,
     )
 
     user_photo_path = UPLOADS_DIR / f"{request_id}_{photo_kind}.jpg"
@@ -196,7 +233,12 @@ def tryon(
         raise HTTPException(status_code=500, detail="Catalog image is missing on disk.")
 
     # 1) Nano Banana try-on image
-    prompt = prompt_builder.build_tryon_prompt(item)
+    if category == "jewelry":
+        prompt = prompt_builder.build_tryon_prompt(item)
+        video_prompt = prompt_builder.build_video_prompt(item)
+    else:
+        prompt = clothing_prompt_builder.build_clothing_tryon_prompt(item)
+        video_prompt = clothing_prompt_builder.build_video_prompt(item)
     try:
         image_bytes, mime = nanobanana_service.generate_tryon_image(
             user_photo_path, product_photo_path, prompt
@@ -216,9 +258,7 @@ def tryon(
     if generate_video:
         video_path = OUTPUTS_DIR / f"{request_id}_video.mp4"
         try:
-            ltx_service.generate_tryon_video(
-                image_path, prompt_builder.build_video_prompt(item), video_path
-            )
+            ltx_service.generate_tryon_video(image_path, video_prompt, video_path)
             video_url = f"/outputs/{video_path.name}"
         except LTXError as exc:
             video_error = str(exc)
@@ -232,7 +272,8 @@ def tryon(
         request_id=request_id,
         item_id=item["id"],
         item_name=item["name"],
-        jewelry_type=jewelry_type,
+        category=category,
+        item_type=item_type,
         photo_kind=photo_kind,
         image_url=f"/outputs/{image_path.name}",
         video_url=video_url,

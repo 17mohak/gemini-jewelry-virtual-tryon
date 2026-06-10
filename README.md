@@ -1,16 +1,13 @@
-# Jewelry Virtual Try-On
+# Jewelry & Clothing Virtual Try-On
 
-A virtual try-on system built for the **Sixth Dimension Labs backend intern assignment (Part 1)**.
+A virtual try-on system built for the **Sixth Dimension Labs backend intern assignment** — **Part 1 (jewelry)** in full, plus the **Part 2 bonus (clothing)**.
 
-Upload a photo of your **face** (necklaces, earrings) or your **hand** (rings, bracelets), pick a piece from a 10-item catalog, and the system:
+Upload a photo of your **face** (necklaces, earrings), your **hand** (rings, bracelets), or your **full body** (tops, dresses, trousers), pick an item from the catalog, and the system:
 
 1. generates a **photorealistic try-on image** with **Nano Banana** (Google's image-editing model), and
 2. optionally animates it into a **6-second video** with **LTX 2.3**,
 
 then shows both in a minimal frontend, with the exact generation prompt inspectable in the UI. Everything is stored on the **local filesystem only**.
-
-> Part 2 (clothing try-on) was intentionally not attempted: it is bonus-only, and the video budget
-> for this project (see [Video budget](#video-budget)) was reserved for making Part 1 excellent.
 
 ---
 
@@ -25,6 +22,15 @@ then shows both in a minimal frontend, with the exact generation prompt inspecta
 
 🎬 **Video:** [docs/demo/result_necklace_video.mp4](docs/demo/result_necklace_video.mp4) — a 6-second LTX 2.3 clip generated from the necklace try-on (subtle head turn, static camera, identity and jewelry preserved).
 
+### Part 2 (bonus): clothing try-on
+
+| Input photo | Try-on result |
+| --- | --- |
+| ![Synthetic full-body input](docs/demo/input_body.jpg) | ![Breton Striped Top try-on](docs/demo/result_breton_top.jpg) *Breton Striped Top* — the stripes stay evenly spaced and follow the body's contours; leggings, shoes, face and background untouched |
+| *(same body photo)* | ![Emerald Wrap Midi Dress try-on](docs/demo/result_wrap_dress.jpg) *Emerald Wrap Midi Dress* — full outfit replacement with faithful wrap bodice, flutter sleeves and tie waist |
+
+🎬 **Video:** [docs/demo/result_dress_video.mp4](docs/demo/result_dress_video.mp4) — a 6-second LTX 2.3 clip of the dress try-on with natural fabric motion.
+
 The input photos are **synthetic people generated for this demo** (no real person's identity is used in the repo).
 
 ### The app itself
@@ -33,9 +39,9 @@ The input photos are **synthetic people generated for this demo** (no real perso
 | --- | --- | --- |
 | ![Home page](docs/screenshots/01_home.png) | ![Photo uploaded and item selected](docs/screenshots/02_ready_state.png) | ![Result with image and video](docs/screenshots/03_result_image_video.png) |
 
-| Video + prompt inspection | Loading | Error handling |
-| --- | --- | --- |
-| ![Video playing in the UI](docs/screenshots/04_video_and_prompt.png) | ![Loading state](docs/screenshots/06_loading_state.png) | ![Clean error state](docs/screenshots/07_error_state.png) |
+| Video + prompt inspection | Loading | Error handling | Clothing mode (Part 2) |
+| --- | --- | --- | --- |
+| ![Video playing in the UI](docs/screenshots/04_video_and_prompt.png) | ![Loading state](docs/screenshots/06_loading_state.png) | ![Clean error state](docs/screenshots/07_error_state.png) | ![Clothing mode](docs/screenshots/08_clothing_mode.png) |
 
 ![The full generation prompt, inspectable in the UI](docs/screenshots/05_prompt_panel.png)
 
@@ -62,21 +68,23 @@ Local filesystem      backend/uploads/  backend/outputs/  (request-scoped names)
 | Image handling | Pillow, httpx |
 | Frontend | Plain HTML / CSS / JS — no frameworks |
 | Config | python-dotenv (`.env`), nothing hardcoded |
-| Tests | pytest — 36 tests |
+| Tests | pytest — 54 tests |
 
 ```
 backend/
   app.py                  # routes, upload validation, request-scoped file names
   config.py               # env-based settings
   services/
-    prompt_builder.py     # ⭐ type-aware prompt construction (the core)
+    prompt_builder.py     # ⭐ type-aware jewelry prompt construction (the core)
+    clothing_prompt_builder.py  # Part 2: separate garment-swap prompt logic
     nanobanana_service.py # image editing call, one transient retry, clean errors
     ltx_service.py        # video call, aspect-aware resolution, NO retries (billed per second)
-  catalog/catalog.json    # 10 items + per-item prompt hints + attribution
-  catalog/images/         # royalty-free product photos (stored locally)
+  catalog/catalog.json    # 10 jewelry items + per-item prompt hints + attribution
+  catalog/clothing.json   # Part 2: 5 clothing items (tops, dresses, trousers)
+  catalog/images/         # product photos (stored locally)
   uploads/  outputs/      # user photos / generated artifacts (gitignored)
 frontend/                 # index.html, styles.css, app.js
-tests/                    # prompt builder, routing, routes, LTX helpers
+tests/                    # jewelry + clothing prompt builders, routing, routes, LTX helpers
 docs/demo/                # real generated results    docs/screenshots/  UI captures
 scripts/                  # provenance: catalog image sourcing script
 ```
@@ -120,11 +128,12 @@ Optional overrides (`NANOBANANA_MODEL`, `LTX_MODEL`, `LTX_API_BASE`, `LTX_VIDEO_
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/api/health` | health + config check |
-| `GET` | `/api/catalog` | catalog with each item's required photo kind |
-| `POST` | `/api/tryon` | `item_id`, `face_photo`/`hand_photo`, `generate_video` (default **false**) |
+| `GET` | `/api/catalog` | jewelry catalog with each item's required photo kind |
+| `GET` | `/api/catalog/clothing` | Part 2 clothing catalog (all items need a full-body photo) |
+| `POST` | `/api/tryon` | `item_id`, `face_photo`/`hand_photo`/`body_photo`, `generate_video` (default **false**) |
 | `GET` | `/outputs/…`, `/catalog/…` | generated artifacts / product photos |
 
-The backend routes photos **server-side by jewelry type** (necklace/earrings → face, ring/bracelet → hand) and returns a clear 400 if the needed photo is missing. Uploads are validated (MIME type, ≤ 8 MB, decodable, EXIF orientation normalized). A video failure never voids the image result — the response carries `image_url` plus a human-readable `video_error`. Every response includes the exact `prompt` used, which the UI exposes in an "Inspect the prompt" panel.
+The backend routes photos **server-side by item type** (necklace/earrings → face, ring/bracelet → hand, top/dress/trousers → full body) and returns a clear 400 if the needed photo is missing. Uploads are validated (MIME type, ≤ 8 MB, decodable, EXIF orientation normalized). A video failure never voids the image result — the response carries `image_url` plus a human-readable `video_error`. Every response includes the exact `prompt` used, which the UI exposes in an "Inspect the prompt" panel.
 
 ---
 
@@ -143,6 +152,10 @@ The prompt is **assembled by code** in [`backend/services/prompt_builder.py`](ba
 
 A separate `build_video_prompt()` drives LTX: since the try-on image is the first frame, it only asks for *subtle motion* — a slow head turn or hand rotation so light glints off the piece, static camera — and explicitly forbids morphing, warping, or scene changes.
 
+### Part 2: clothing prompts are deliberately separate
+
+Clothing lives in its own module ([`clothing_prompt_builder.py`](backend/services/clothing_prompt_builder.py)) because the task is fundamentally different: jewelry is an **addition** (change nothing except adding one object), while clothing is a **garment swap** (remove one garment, fit another to the body). Sharing prompt text would weaken both. The clothing builder keeps the same six-section skeleton but swaps the physics: per-type *fit* language (tops replace only the upper-body garment and keep the lower body untouched; trousers the reverse; dresses replace the outfit with gravity-correct skirt drape), preservation extends to **body shape and proportions**, and fidelity language centers on **pattern scale, direction and alignment** — which is why the breton stripes survive intact in the demo above.
+
 ---
 
 ## Video budget
@@ -151,16 +164,18 @@ Video generation costs real money (LTX bills per second of output; the 6-second 
 
 - video generation is **opt-in** in both the API (`generate_video` defaults to `false`) and the UI checkbox — a regression test (`test_tryon_video_is_opt_in`) pins this so a refactor can never silently spend credits;
 - `ltx_service` performs **no automatic retries** — a retry on an ambiguous failure could double-bill;
-- exactly **one** video was generated for this submission, on the final verified candidate image, on the first attempt (the clip in `docs/demo/`); roughly $0.85 of credit remains.
+- exactly **two** videos were generated for this submission — one for Part 1 (necklace) and one for Part 2 (dress) — each on an already-verified candidate image, each succeeding on the first attempt. Total spend: **$0.72 of $1.25**, leaving ~$0.53 in reserve.
 
 If credits run out, the API returns the image with a friendly `video_error` ("insufficient video credits…"), and the UI shows it as a warning under the image — the flow is covered by tests.
 
 ## Honest status & limitations
 
-- **Verified live:** image try-on works end-to-end for **all four jewelry types** — necklace and earrings on a face photo, ring and bracelet on a hand photo (all results above are unedited app outputs). The LTX video step worked first try on the same pipeline.
-- **Output framing:** Nano Banana occasionally re-crops slightly (the ring result returned a mildly wider frame than the input). The prompt constrains framing, which keeps this rare, but it is not fully eliminable.
+- **Verified live:** image try-on works end-to-end for **all four jewelry types** — necklace and earrings on a face photo, ring and bracelet on a hand photo — and for **clothing tops and dresses** on a full-body photo (all results above are unedited app outputs). Both LTX video runs worked first try on the same pipeline.
+- **Not live-tested:** the oxford shirt, black dress and jeans share the verified clothing path but were not individually generated, to conserve quota; their prompt branches are covered by tests.
+- **Output framing:** Nano Banana occasionally re-crops slightly (the ring result returned a mildly wider frame than the input). The prompt constrains framing, which keeps this rare, but it is not fully eliminable. Similarly, the wrap dress rendered slightly longer than the product's midi cut — design elements (neckline, sleeves, tie waist, color) were preserved faithfully.
 - **Free-tier image quota is low.** Nano Banana free-tier image generation has small daily/per-minute caps; the app surfaces HTTP 429 as a clear, friendly message (screenshot above). Some Google projects have *zero* free image-gen quota — if every request 429s instantly, the fix is a key from a project with image quota, not a code change.
-- **Demo inputs are synthetic.** Both "users" in the demo were generated for this project so no real person's likeness ships in the repo.
+- **Demo inputs are synthetic.** All "users" in the demos were generated for this project so no real person's likeness ships in the repo.
+- **Clothing product images are project-generated.** Clean royalty-free *product-style* garment photos (ghost-mannequin, white background) are hard to source legitimately, so the five clothing catalog images were generated with Nano Banana for this project and are labeled as such in `clothing.json`. The jewelry catalog uses real museum/Commons photographs.
 
 ### Migration note
 
@@ -168,4 +183,6 @@ An earlier iteration of this project used Google Gemini for images and Kling for
 
 ## Catalog & image credits
 
-10 items (4 necklaces, 2 earrings, 2 rings, 2 bracelets) with royalty-free product photos: The Metropolitan Museum of Art **CC0** open-access collection, plus public-domain Cooper Hewitt / Smithsonian and Musée de Cluny photographs, sourced from Wikimedia Commons. Each item's `attribution` block in [`backend/catalog/catalog.json`](backend/catalog/catalog.json) carries the exact source URL and license; the one CC-BY photo (Three-Stone Diamond Ring, by *Litho Printers*, CC BY 2.0) is credited there. The sourcing script is kept at `scripts/fetch_catalog_images.py` for provenance.
+**Jewelry:** 10 items (4 necklaces, 2 earrings, 2 rings, 2 bracelets) with royalty-free product photos: The Metropolitan Museum of Art **CC0** open-access collection, plus public-domain Cooper Hewitt / Smithsonian and Musée de Cluny photographs, sourced from Wikimedia Commons. Each item's `attribution` block in [`backend/catalog/catalog.json`](backend/catalog/catalog.json) carries the exact source URL and license; the one CC-BY photo (Three-Stone Diamond Ring, by *Litho Printers*, CC BY 2.0) is credited there. The sourcing script is kept at `scripts/fetch_catalog_images.py` for provenance.
+
+**Clothing (Part 2):** 5 items (2 tops, 2 dresses, 1 trousers) with product images generated by Nano Banana for this project (disclosed in each item's `attribution` block in [`backend/catalog/clothing.json`](backend/catalog/clothing.json)).
