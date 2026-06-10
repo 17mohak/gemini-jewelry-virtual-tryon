@@ -11,8 +11,8 @@ const state = {
 const $ = (id) => document.getElementById(id);
 
 const LOADING_MESSAGES = {
-  image: "Generating your try-on image with Gemini… (~15–60 s)",
-  video: "Image + video requested. Kling video generation can take a few minutes — hang tight…",
+  image: "Generating your try-on image with Nano Banana… (~15–60 s)",
+  video: "Generating the try-on image, then a 6-second LTX video — the video step can take a few minutes…",
 };
 
 /* ── Uploads ── */
@@ -59,19 +59,33 @@ async function loadCatalog() {
     const card = document.createElement("div");
     card.className = "catalog-item";
     card.dataset.id = item.id;
+    card.setAttribute("role", "option");
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("aria-selected", "false");
     card.innerHTML = `
       <img src="${item.image_url}" alt="${item.name}" loading="lazy" />
       <div class="name">${item.name}</div>
       <span class="badge">${item.type} · needs ${item.photo_kind} photo</span>
     `;
-    card.addEventListener("click", () => selectItem(item, card));
+    const select = () => selectItem(item, card);
+    card.addEventListener("click", select);
+    card.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        select();
+      }
+    });
     grid.appendChild(card);
   }
 }
 
 function selectItem(item, card) {
-  document.querySelectorAll(".catalog-item.selected").forEach((el) => el.classList.remove("selected"));
+  document.querySelectorAll(".catalog-item.selected").forEach((el) => {
+    el.classList.remove("selected");
+    el.setAttribute("aria-selected", "false");
+  });
   card.classList.add("selected");
+  card.setAttribute("aria-selected", "true");
   state.selectedItem = item;
   hideError();
   updateReadiness();

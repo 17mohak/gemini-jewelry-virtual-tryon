@@ -1,13 +1,13 @@
-"""Type-aware Gemini prompt construction for jewelry virtual try-on.
+"""Type-aware prompt construction for jewelry virtual try-on.
 
 This module is the core of the assignment: it assembles a strict, structured
-edit instruction for Gemini's image model from (a) the jewelry type and (b) the
-selected catalog item. Nothing here is a single static string — every section
-adapts to the item being tried on.
+edit instruction for the image model (Nano Banana) from (a) the jewelry type
+and (b) the selected catalog item. Nothing here is a single static string —
+every section adapts to the item being tried on.
 
 Design notes (also summarized in the README):
 
-* Gemini image editing responds best to prompts that (1) name each input image
+* Image-editing models respond best to prompts that (1) name each input image
   explicitly, (2) describe the desired *physical* placement of the jewelry the
   way a photographer would, and (3) spell out negative constraints as hard
   rules rather than vague wishes ("do not change facial identity" beats
@@ -149,7 +149,7 @@ _HARD_CONSTRAINTS = (
 
 
 def build_tryon_prompt(item: Mapping[str, str]) -> str:
-    """Build the full Gemini edit prompt for a catalog item.
+    """Build the full image-edit prompt for a catalog item.
 
     ``item`` is a catalog entry with at least ``name``, ``type`` and
     ``description``; an optional ``prompt_hint`` adds item-specific guidance
@@ -184,7 +184,7 @@ def build_tryon_prompt(item: Mapping[str, str]) -> str:
 
 
 def build_video_prompt(item: Mapping[str, str]) -> str:
-    """Build the short motion prompt for the image-to-video step (Kling).
+    """Build the short motion prompt for the image-to-video step (LTX 2.3).
 
     The try-on image is the video's first frame, so this prompt only describes
     gentle motion; all preservation work already happened in the image step.

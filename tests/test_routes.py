@@ -26,7 +26,7 @@ def test_health_shape():
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
-    assert set(data) == {"status", "app_env", "gemini_configured", "kling_configured"}
+    assert set(data) == {"status", "app_env", "nanobanana_configured", "ltx_configured"}
 
 
 # ── Catalog ──────────────────────────────────────────────────────────────────
@@ -45,6 +45,11 @@ def test_catalog_has_at_least_five_items_with_required_fields():
 def test_catalog_covers_all_four_jewelry_types():
     types = {item["type"] for item in client.get("/api/catalog").json()}
     assert types == {"necklace", "earrings", "ring", "bracelet"}
+
+
+def test_catalog_ids_are_unique():
+    ids = [item["id"] for item in client.get("/api/catalog").json()]
+    assert len(ids) == len(set(ids))
 
 
 def test_catalog_images_exist_on_disk_and_are_served():
@@ -86,21 +91,26 @@ def test_tryon_rejects_non_image_upload():
     assert "Unsupported file type" in resp.json()["detail"]
 
 
-# ── Try-on success (Gemini + Kling mocked) ───────────────────────────────────
+# ── Try-on success (Nano Banana + LTX mocked) ────────────────────────────────
 
 @pytest.fixture
 def mock_services(monkeypatch):
+    calls = {"image": 0, "video": 0}
+
     def fake_image(user_photo, product_photo, prompt):
+        calls["image"] += 1
         assert user_photo.exists() and product_photo.exists()
         assert "photorealistic" in prompt
         return make_photo_bytes(), "image/jpeg"
 
     def fake_video(image_path, prompt, output_path):
+        calls["video"] += 1
         output_path.write_bytes(b"\x00\x00\x00\x18ftypmp42fake")
         return output_path
 
-    monkeypatch.setattr(app_module.gemini_service, "generate_tryon_image", fake_image)
-    monkeypatch.setattr(app_module.kling_service, "generate_tryon_video", fake_video)
+    monkeypatch.setattr(app_module.nanobanana_service, "generate_tryon_image", fake_image)
+    monkeypatch.setattr(app_module.ltx_service, "generate_tryon_video", fake_video)
+    return calls
 
 
 def test_tryon_success_response_shape(mock_services):
@@ -124,17 +134,33 @@ def test_tryon_success_response_shape(mock_services):
     assert client.get(data["video_url"]).status_code == 200
 
 
+def test_tryon_video_is_opt_in(mock_services):
+    """Video generation costs real credits: it must NOT run unless requested."""
+    ring = next(i for i in client.get("/api/catalog").json() if i["type"] == "ring")
+    resp = client.post(
+        "/api/tryon",
+        data={"item_id": ring["id"]},  # generate_video omitted on purpose
+        files={"hand_photo": ("hand.jpg", make_photo_bytes(), "image/jpeg")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["image_url"].startswith("/outputs/")
+    assert data["video_url"] is None
+    assert data["video_error"] is None
+    assert mock_services["video"] == 0
+
+
 def test_tryon_video_failure_still_returns_image(mock_services, monkeypatch):
-    from backend.services.kling_service import KlingError
+    from backend.services.ltx_service import LTXError
 
     def failing_video(image_path, prompt, output_path):
-        raise KlingError("Kling account has no remaining credits.")
+        raise LTXError("The LTX account has insufficient video credits.")
 
-    monkeypatch.setattr(app_module.kling_service, "generate_tryon_video", failing_video)
+    monkeypatch.setattr(app_module.ltx_service, "generate_tryon_video", failing_video)
     necklace = next(i for i in client.get("/api/catalog").json() if i["type"] == "necklace")
     resp = client.post(
         "/api/tryon",
-        data={"item_id": necklace["id"]},
+        data={"item_id": necklace["id"], "generate_video": "true"},
         files={"face_photo": ("face.jpg", make_photo_bytes(), "image/jpeg")},
     )
     assert resp.status_code == 200
@@ -142,3 +168,20 @@ def test_tryon_video_failure_still_returns_image(mock_services, monkeypatch):
     assert data["image_url"].startswith("/outputs/")
     assert data["video_url"] is None
     assert "credits" in data["video_error"]
+
+
+def test_tryon_image_failure_returns_clean_502(mock_services, monkeypatch):
+    from backend.services.nanobanana_service import NanoBananaError
+
+    def failing_image(user_photo, product_photo, prompt):
+        raise NanoBananaError("Nano Banana quota / rate limit reached for this API key.")
+
+    monkeypatch.setattr(app_module.nanobanana_service, "generate_tryon_image", failing_image)
+    ring = next(i for i in client.get("/api/catalog").json() if i["type"] == "ring")
+    resp = client.post(
+        "/api/tryon",
+        data={"item_id": ring["id"]},
+        files={"hand_photo": ("hand.jpg", make_photo_bytes(), "image/jpeg")},
+    )
+    assert resp.status_code == 502
+    assert "Nano Banana" in resp.json()["detail"]
