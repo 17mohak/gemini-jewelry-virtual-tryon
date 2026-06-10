@@ -1,0 +1,127 @@
+{
+  "items": [
+    {
+      "id": "necklace-gemset",
+      "name": "Gem-Set Gold Necklace",
+      "type": "necklace",
+      "image": "images/necklace_gemset.jpg",
+      "description": "Ornate South Indian gold necklace set with rows of rubies, emeralds and seed pearls, finished with a circular gem-set pendant and a fine triple-chain gold back strap.",
+      "attribution": {
+        "title": "Necklace, The Metropolitan Museum of Art",
+        "license": "CC0 1.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Necklace_MET_DP-14795-004.jpg"
+      }
+    },
+    {
+      "id": "necklace-gold-beads",
+      "name": "Gold Filigree Bead Necklace",
+      "type": "necklace",
+      "image": "images/necklace_gold_beads.jpg",
+      "description": "Single-strand necklace of round filigree gold beads in graduating sizes with a darker spherical clasp bead.",
+      "prompt_hint": "The product photo also shows a pair of matching drop earrings; apply ONLY the bead necklace, ignore the earrings.",
+      "attribution": {
+        "title": "Necklace and Pair of Earrings, The Metropolitan Museum of Art",
+        "license": "CC0 1.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Necklace_and_Pair_of_Earrings_MET_DP-15524-001.jpg"
+      }
+    },
+    {
+      "id": "necklace-cross-pendant",
+      "name": "Gold Cross Pendant Necklace",
+      "type": "necklace",
+      "image": "images/necklace_cross_pendant.jpg",
+      "description": "Byzantine-style gold chain necklace of flattened oval links with two filigree medallions near the clasp and an embossed gold cross pendant.",
+      "attribution": {
+        "title": "Necklace with Pendant Cross, The Metropolitan Museum of Art",
+        "license": "CC0 1.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Necklace_with_Pendant_Cross_MET_sf17-190-1650s1.jpg"
+      }
+    },
+    {
+      "id": "necklace-coral-coin",
+      "name": "Coral & Gold Coin Collar Necklace",
+      "type": "necklace",
+      "image": "images/necklace_coral_coin.jpg",
+      "description": "Collar-style necklace of orange-red coral beads alternating with dangling engraved gold coins on a dark oxidized metal chain.",
+      "attribution": {
+        "title": "Necklace, 19th century, Cooper Hewitt / Smithsonian",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Necklace,_19th_century_(CH_18325461).jpg"
+      }
+    },
+    {
+      "id": "earrings-gold-drop",
+      "name": "Gold Drop Earrings",
+      "type": "earrings",
+      "image": "images/earrings_gold_drop.jpg",
+      "description": "Pair of hammered gold drop earrings, each made of two interlocking gold rings with a beaded cap and three teardrop-shaped gold pendants hanging from fine chains.",
+      "attribution": {
+        "title": "Earring (One of a Pair), The Metropolitan Museum of Art",
+        "license": "CC0 1.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Earring_(One_of_a_Pair)_MET_DP-14791-020.jpg"
+      }
+    },
+    {
+      "id": "earrings-gold-hoop",
+      "name": "Classic Gold Hoop Earrings",
+      "type": "earrings",
+      "image": "images/earrings_gold_hoop.jpg",
+      "description": "Smooth, thick polished gold hoop earrings with a rounded tubular profile and a small tapered opening.",
+      "prompt_hint": "The product photo shows a single hoop; render it as a matching pair, one hoop worn on each ear.",
+      "attribution": {
+        "title": "Hoop Earring, The Metropolitan Museum of Art",
+        "license": "CC0 1.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Hoop_Earring_MET_68.136.15_EGDP019545.jpg"
+      }
+    },
+    {
+      "id": "ring-three-stone-diamond",
+      "name": "Three-Stone Diamond Ring",
+      "type": "ring",
+      "image": "images/ring_three_stone_diamond.jpg",
+      "description": "White-gold three-stone diamond ring with round brilliant-cut diamonds in prong settings, the center stone slightly larger than the two side stones.",
+      "prompt_hint": "The product photo shows two rings; apply ONLY the three-stone diamond ring, ignore the plain band.",
+      "attribution": {
+        "title": "Wedding rings photo by Litho Printers",
+        "license": "CC BY 2.0 (credit: Litho Printers)",
+        "source": "https://commons.wikimedia.org/wiki/File:Wedding_rings_photo_by_Litho_Printers.jpg"
+      }
+    },
+    {
+      "id": "ring-gold-filigree",
+      "name": "Gold Filigree Statement Ring",
+      "type": "ring",
+      "image": "images/ring_gold_filigree.jpg",
+      "description": "Statement gold ring with a rectangular openwork filigree face decorated with fine granulated scrollwork on a wide gold band.",
+      "attribution": {
+        "title": "Ring, The Metropolitan Museum of Art",
+        "license": "CC0 1.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Ring_MET_DP-14948-003.jpg"
+      }
+    },
+    {
+      "id": "bracelet-enamel-bangle",
+      "name": "Mughal Enamel Bangle",
+      "type": "bracelet",
+      "image": "images/bracelet_enamel_bangle.jpg",
+      "description": "Mughal-style open cuff bangle in rich green enamel set with gold-rimmed ruby-red stones, a red-and-white floral enamel inner band, ending in two stylized gem-set bud finials.",
+      "attribution": {
+        "title": "Inlaid bangle bracelet, 18th-19th century, Cooper Hewitt / Smithsonian",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Inlaid_bangle_bracelet_Bracelet,_18th%E2%80%9319th_century_(CH_18647655).jpg"
+      }
+    },
+    {
+      "id": "bracelet-gold-spiral",
+      "name": "Gold Spiral Wrap Bracelet",
+      "type": "bracelet",
+      "image": "images/bracelet_gold_spiral.jpg",
+      "description": "Gold spiral wrap bracelet of four smooth coils of round gold wire, finished with small flattened cone finials at both ends.",
+      "attribution": {
+        "title": "Spiral bracelet, Musee national du Moyen Age (Cl.9245)",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Spiral_bracelet_MNMA_Cl9245.jpg"
+      }
+    }
+  ]
+}
