@@ -8,78 +8,79 @@
 </head>
 <body>
   <header>
-    <h1>💎 Jewelry Virtual Try-On</h1>
-    <p class="subtitle">Upload a photo, pick a piece, and see yourself wearing it — powered by Gemini + Kling.</p>
+    <p class="eyebrow">Virtual try-on studio</p>
+    <h1>See yourself wearing it</h1>
+    <p class="subtitle">Upload a photo, choose a piece of jewelry, and a photorealistic try-on is generated with Nano&nbsp;Banana — plus an optional short video with LTX&nbsp;2.3.</p>
   </header>
 
   <main>
     <!-- Step 1: photos -->
-    <section class="card">
-      <h2><span class="step">1</span> Upload your photos</h2>
-      <p class="hint">Necklaces &amp; earrings use your <strong>face photo</strong>; rings &amp; bracelets use your <strong>hand photo</strong>. Upload whichever the item you pick needs.</p>
+    <section class="card" aria-labelledby="step1-h">
+      <h2 id="step1-h"><span class="step" aria-hidden="true">1</span> Upload your photos</h2>
+      <p class="hint">Necklaces &amp; earrings are placed on your <strong>face photo</strong>; rings &amp; bracelets on your <strong>hand photo</strong>. Upload whichever the item you pick needs.</p>
       <div class="uploads">
         <label class="upload-box" id="face-box">
-          <input type="file" id="face-input" accept="image/jpeg,image/png,image/webp" hidden />
-          <img id="face-preview" class="preview" alt="" hidden />
+          <input type="file" id="face-input" accept="image/jpeg,image/png,image/webp" hidden aria-label="Upload face photo" />
+          <img id="face-preview" class="preview" alt="Preview of your face photo" hidden />
           <div class="upload-placeholder" id="face-placeholder">
-            <span class="upload-icon">🙂</span>
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="9" r="3.5"/><path d="M5.5 19.2c1.2-3 3.6-4.4 6.5-4.4s5.3 1.4 6.5 4.4"/><circle cx="12" cy="12" r="10"/></svg>
             <strong>Face photo</strong>
-            <span>head &amp; shoulders — JPEG/PNG/WebP, max 8&nbsp;MB</span>
+            <span>head &amp; shoulders · JPEG, PNG or WebP · max 8&nbsp;MB</span>
           </div>
         </label>
         <label class="upload-box" id="hand-box">
-          <input type="file" id="hand-input" accept="image/jpeg,image/png,image/webp" hidden />
-          <img id="hand-preview" class="preview" alt="" hidden />
+          <input type="file" id="hand-input" accept="image/jpeg,image/png,image/webp" hidden aria-label="Upload hand photo" />
+          <img id="hand-preview" class="preview" alt="Preview of your hand photo" hidden />
           <div class="upload-placeholder" id="hand-placeholder">
-            <span class="upload-icon">✋</span>
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M8 12V5.5a1.5 1.5 0 0 1 3 0V11m0-6.5v-1a1.5 1.5 0 0 1 3 0V11m0-5.5a1.5 1.5 0 0 1 3 0V12m0-3.5a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-7 7h-1.5c-2.2 0-3.9-.9-5-2.6L4.2 15c-.9-1.3-.4-2.7.8-3.2 1-.4 2 0 2.6.9l.4.6"/></svg>
             <strong>Hand photo</strong>
-            <span>hand &amp; wrist — JPEG/PNG/WebP, max 8&nbsp;MB</span>
+            <span>hand &amp; wrist · JPEG, PNG or WebP · max 8&nbsp;MB</span>
           </div>
         </label>
       </div>
     </section>
 
     <!-- Step 2: catalog -->
-    <section class="card">
-      <h2><span class="step">2</span> Choose a jewelry item</h2>
-      <div id="catalog-grid" class="catalog-grid">
+    <section class="card" aria-labelledby="step2-h">
+      <h2 id="step2-h"><span class="step" aria-hidden="true">2</span> Choose a jewelry item</h2>
+      <div id="catalog-grid" class="catalog-grid" role="listbox" aria-label="Jewelry catalog">
         <p class="muted">Loading catalog…</p>
       </div>
     </section>
 
     <!-- Step 3: go -->
-    <section class="card">
-      <h2><span class="step">3</span> Try it on</h2>
+    <section class="card" aria-labelledby="step3-h">
+      <h2 id="step3-h"><span class="step" aria-hidden="true">3</span> Try it on</h2>
       <div class="actions">
+        <button id="tryon-btn" disabled>Try it on</button>
         <label class="checkbox">
-          <input type="checkbox" id="video-toggle" checked />
-          Also generate a short video (takes a few minutes)
+          <input type="checkbox" id="video-toggle" />
+          Also generate a 6-second video <span class="muted">(uses paid LTX credits)</span>
         </label>
-        <button id="tryon-btn" disabled>Try On ✨</button>
       </div>
-      <p id="requirement-note" class="hint"></p>
+      <p id="requirement-note" class="hint" aria-live="polite"></p>
     </section>
 
     <!-- Results -->
-    <section class="card" id="result-card" hidden>
-      <h2>Result</h2>
-      <div id="loading" class="loading" hidden>
-        <div class="spinner"></div>
+    <section class="card" id="result-card" hidden aria-labelledby="result-h">
+      <h2 id="result-h">Result</h2>
+      <div id="loading" class="loading" hidden aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
         <p id="loading-text">Generating your try-on image…</p>
       </div>
-      <div id="error-box" class="error" hidden></div>
+      <div id="error-box" class="error" role="alert" hidden></div>
       <div id="results" class="results" hidden>
         <figure>
-          <figcaption>Try-on image (Gemini)</figcaption>
+          <figcaption>Try-on image <span class="muted">· Nano Banana</span></figcaption>
           <img id="result-image" alt="Generated try-on image" />
         </figure>
         <figure id="video-figure" hidden>
-          <figcaption>Try-on video (Kling)</figcaption>
-          <video id="result-video" controls autoplay muted loop></video>
+          <figcaption>Try-on video <span class="muted">· LTX 2.3</span></figcaption>
+          <video id="result-video" controls autoplay muted loop playsinline></video>
         </figure>
         <div id="video-error" class="warn" hidden></div>
         <details id="prompt-details">
-          <summary>Show the Gemini prompt used</summary>
+          <summary>Inspect the prompt that generated this image</summary>
           <pre id="prompt-text"></pre>
         </details>
       </div>
@@ -87,7 +88,7 @@
   </main>
 
   <footer>
-    <p class="muted">Files are stored locally only. Catalog photos are royalty-free (MET / Smithsonian / Wikimedia Commons).</p>
+    <p class="muted">All files stay on your machine — local storage only. Catalog photos are royalty-free (The Met / Smithsonian / Wikimedia Commons).</p>
   </footer>
 
   <script src="app.js"></script>

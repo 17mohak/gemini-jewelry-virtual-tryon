@@ -23,21 +23,25 @@ FRONTEND_DIR = ROOT_DIR / "frontend"
 class Settings:
     app_env: str = field(default_factory=lambda: os.getenv("APP_ENV", "local"))
 
-    gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
-    gemini_model: str = field(
-        default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-2.5-flash-image")
+    # ── Nano Banana (image try-on) ────────────────────────────────────────
+    # Nano Banana is Google's image-editing model; its API model id is
+    # "gemini-2.5-flash-image", served by the Generative Language API.
+    nanobanana_api_key: str = field(
+        default_factory=lambda: os.getenv("NANOBANANA_API_KEY", "")
+    )
+    nanobanana_model: str = field(
+        default_factory=lambda: os.getenv("NANOBANANA_MODEL", "gemini-2.5-flash-image")
     )
 
-    kling_access_key: str = field(default_factory=lambda: os.getenv("KLING_ACCESS_KEY", ""))
-    kling_secret_key: str = field(default_factory=lambda: os.getenv("KLING_SECRET_KEY", ""))
-    kling_model: str = field(default_factory=lambda: os.getenv("KLING_MODEL", "kling-v1"))
-    kling_api_base: str = field(
-        default_factory=lambda: os.getenv(
-            "KLING_API_BASE", "https://api-singapore.klingai.com"
-        )
+    # ── LTX 2.3 (image -> short video) ────────────────────────────────────
+    ltx_api_key: str = field(default_factory=lambda: os.getenv("LTX_API_KEY", ""))
+    ltx_model: str = field(default_factory=lambda: os.getenv("LTX_MODEL", "ltx-2-3-fast"))
+    ltx_api_base: str = field(
+        default_factory=lambda: os.getenv("LTX_API_BASE", "https://api.ltx.video")
     )
-    kling_video_duration: str = field(
-        default_factory=lambda: os.getenv("KLING_VIDEO_DURATION", "5")
+    # Billed per second of output; 6 s is the shortest the API allows.
+    ltx_video_duration: int = field(
+        default_factory=lambda: int(os.getenv("LTX_VIDEO_DURATION", "6"))
     )
 
     max_upload_bytes: int = 8 * 1024 * 1024  # 8 MB

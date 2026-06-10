@@ -1,4 +1,4 @@
-"""Tests for the type-aware Gemini prompt builder."""
+"""Tests for the type-aware try-on prompt builder."""
 
 import pytest
 

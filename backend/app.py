@@ -34,9 +34,9 @@ from backend.config import (
     UPLOADS_DIR,
     settings,
 )
-from backend.services import gemini_service, kling_service, prompt_builder
-from backend.services.gemini_service import GeminiError
-from backend.services.kling_service import KlingError
+from backend.services import ltx_service, nanobanana_service, prompt_builder
+from backend.services.ltx_service import LTXError
+from backend.services.nanobanana_service import NanoBananaError
 
 # ── Logging (structured key=value lines) ─────────────────────────────────────
 
@@ -48,7 +48,7 @@ logger = logging.getLogger("app")
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="Jewelry Virtual Try-On", version="1.0.0")
+app = FastAPI(title="Jewelry Virtual Try-On", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -80,8 +80,8 @@ def get_item(item_id: str) -> dict:
 class HealthResponse(BaseModel):
     status: str
     app_env: str
-    gemini_configured: bool
-    kling_configured: bool
+    nanobanana_configured: bool
+    ltx_configured: bool
 
 
 class CatalogItemOut(BaseModel):
@@ -113,8 +113,8 @@ def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
         app_env=settings.app_env,
-        gemini_configured=bool(settings.gemini_api_key),
-        kling_configured=bool(settings.kling_access_key and settings.kling_secret_key),
+        nanobanana_configured=bool(settings.nanobanana_api_key),
+        ltx_configured=bool(settings.ltx_api_key),
     )
 
 
@@ -165,7 +165,9 @@ def tryon(
     item_id: str = Form(...),
     face_photo: Optional[UploadFile] = File(None),
     hand_photo: Optional[UploadFile] = File(None),
-    generate_video: bool = Form(True),
+    # Video is opt-in: LTX bills per generated second, so the default must
+    # never spend credits without the user explicitly asking for it.
+    generate_video: bool = Form(False),
 ) -> TryOnResponse:
     item = get_item(item_id)
     jewelry_type = item["type"]
@@ -182,8 +184,8 @@ def tryon(
 
     request_id = uuid.uuid4().hex[:12]
     logger.info(
-        "tryon start request_id=%s item=%s type=%s photo_kind=%s",
-        request_id, item_id, jewelry_type, photo_kind,
+        "tryon start request_id=%s item=%s type=%s photo_kind=%s video=%s",
+        request_id, item_id, jewelry_type, photo_kind, generate_video,
     )
 
     user_photo_path = UPLOADS_DIR / f"{request_id}_{photo_kind}.jpg"
@@ -193,14 +195,14 @@ def tryon(
     if not product_photo_path.exists():
         raise HTTPException(status_code=500, detail="Catalog image is missing on disk.")
 
-    # 1) Gemini try-on image
+    # 1) Nano Banana try-on image
     prompt = prompt_builder.build_tryon_prompt(item)
     try:
-        image_bytes, mime = gemini_service.generate_tryon_image(
+        image_bytes, mime = nanobanana_service.generate_tryon_image(
             user_photo_path, product_photo_path, prompt
         )
-    except GeminiError as exc:
-        logger.error("tryon gemini_failed request_id=%s error=%s", request_id, exc)
+    except NanoBananaError as exc:
+        logger.error("tryon image_failed request_id=%s error=%s", request_id, exc)
         raise HTTPException(status_code=502, detail=str(exc))
 
     ext = "png" if "png" in mime else "jpg"
@@ -208,23 +210,23 @@ def tryon(
     image_path.write_bytes(image_bytes)
     logger.info("tryon image_saved request_id=%s path=%s", request_id, image_path.name)
 
-    # 2) Kling video (failure here does not void the image result)
+    # 2) LTX video (optional; failure here does not void the image result)
     video_url: Optional[str] = None
     video_error: Optional[str] = None
     if generate_video:
         video_path = OUTPUTS_DIR / f"{request_id}_video.mp4"
         try:
-            kling_service.generate_tryon_video(
+            ltx_service.generate_tryon_video(
                 image_path, prompt_builder.build_video_prompt(item), video_path
             )
             video_url = f"/outputs/{video_path.name}"
-        except KlingError as exc:
+        except LTXError as exc:
             video_error = str(exc)
-            logger.error("tryon kling_failed request_id=%s error=%s", request_id, exc)
+            logger.error("tryon video_failed request_id=%s error=%s", request_id, exc)
 
     logger.info(
         "tryon done request_id=%s image=%s video=%s",
-        request_id, image_path.name, video_url or f"error: {video_error}",
+        request_id, image_path.name, video_url or (f"error: {video_error}" if video_error else "skipped"),
     )
     return TryOnResponse(
         request_id=request_id,
