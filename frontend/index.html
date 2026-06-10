@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jewelry Virtual Try-On</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>💎 Jewelry Virtual Try-On</h1>
+    <p class="subtitle">Upload a photo, pick a piece, and see yourself wearing it — powered by Gemini + Kling.</p>
+  </header>
+
+  <main>
+    <!-- Step 1: photos -->
+    <section class="card">
+      <h2><span class="step">1</span> Upload your photos</h2>
+      <p class="hint">Necklaces &amp; earrings use your <strong>face photo</strong>; rings &amp; bracelets use your <strong>hand photo</strong>. Upload whichever the item you pick needs.</p>
+      <div class="uploads">
+        <label class="upload-box" id="face-box">
+          <input type="file" id="face-input" accept="image/jpeg,image/png,image/webp" hidden />
+          <img id="face-preview" class="preview" alt="" hidden />
+          <div class="upload-placeholder" id="face-placeholder">
+            <span class="upload-icon">🙂</span>
+            <strong>Face photo</strong>
+            <span>head &amp; shoulders — JPEG/PNG/WebP, max 8&nbsp;MB</span>
+          </div>
+        </label>
+        <label class="upload-box" id="hand-box">
+          <input type="file" id="hand-input" accept="image/jpeg,image/png,image/webp" hidden />
+          <img id="hand-preview" class="preview" alt="" hidden />
+          <div class="upload-placeholder" id="hand-placeholder">
+            <span class="upload-icon">✋</span>
+            <strong>Hand photo</strong>
+            <span>hand &amp; wrist — JPEG/PNG/WebP, max 8&nbsp;MB</span>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <!-- Step 2: catalog -->
+    <section class="card">
+      <h2><span class="step">2</span> Choose a jewelry item</h2>
+      <div id="catalog-grid" class="catalog-grid">
+        <p class="muted">Loading catalog…</p>
+      </div>
+    </section>
+
+    <!-- Step 3: go -->
+    <section class="card">
+      <h2><span class="step">3</span> Try it on</h2>
+      <div class="actions">
+        <label class="checkbox">
+          <input type="checkbox" id="video-toggle" checked />
+          Also generate a short video (takes a few minutes)
+        </label>
+        <button id="tryon-btn" disabled>Try On ✨</button>
+      </div>
+      <p id="requirement-note" class="hint"></p>
+    </section>
+
+    <!-- Results -->
+    <section class="card" id="result-card" hidden>
+      <h2>Result</h2>
+      <div id="loading" class="loading" hidden>
+        <div class="spinner"></div>
+        <p id="loading-text">Generating your try-on image…</p>
+      </div>
+      <div id="error-box" class="error" hidden></div>
+      <div id="results" class="results" hidden>
+        <figure>
+          <figcaption>Try-on image (Gemini)</figcaption>
+          <img id="result-image" alt="Generated try-on image" />
+        </figure>
+        <figure id="video-figure" hidden>
+          <figcaption>Try-on video (Kling)</figcaption>
+          <video id="result-video" controls autoplay muted loop></video>
+        </figure>
+        <div id="video-error" class="warn" hidden></div>
+        <details id="prompt-details">
+          <summary>Show the Gemini prompt used</summary>
+          <pre id="prompt-text"></pre>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p class="muted">Files are stored locally only. Catalog photos are royalty-free (MET / Smithsonian / Wikimedia Commons).</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
