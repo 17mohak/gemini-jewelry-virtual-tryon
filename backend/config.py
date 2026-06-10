@@ -24,13 +24,16 @@ class Settings:
     app_env: str = field(default_factory=lambda: os.getenv("APP_ENV", "local"))
 
     # ── Nano Banana (image try-on) ────────────────────────────────────────
-    # Nano Banana is Google's image-editing model; its API model id is
-    # "gemini-2.5-flash-image", served by the Generative Language API.
+    # Nano Banana is Google's image-editing model family, served by the
+    # Generative Language API. The newer generation (gemini-3.1-flash-image)
+    # is the default: the older gemini-2.5-flash-image deterministically
+    # refuses some clothing edits on real-person photos (finishReason
+    # IMAGE_OTHER) that 3.1 handles correctly.
     nanobanana_api_key: str = field(
         default_factory=lambda: os.getenv("NANOBANANA_API_KEY", "")
     )
     nanobanana_model: str = field(
-        default_factory=lambda: os.getenv("NANOBANANA_MODEL", "gemini-2.5-flash-image")
+        default_factory=lambda: os.getenv("NANOBANANA_MODEL", "gemini-3.1-flash-image")
     )
 
     # ── LTX 2.3 (image -> short video) ────────────────────────────────────
