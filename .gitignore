@@ -18,6 +18,9 @@ backend/uploads/*
 backend/outputs/*
 !backend/outputs/.gitkeep
 
+# Local image-sourcing workspace (candidates reviewed by hand, not shipped)
+scripts/_candidates/
+
 # OS / editor
 .DS_Store
 Thumbs.db
