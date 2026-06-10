@@ -26,3 +26,4 @@ scripts/_candidates/
 Thumbs.db
 .vscode/
 .idea/
+backend/server.*.log

@@ -132,25 +132,42 @@ def generate_tryon_image(
         settings.nanobanana_model, user_photo.name, product_photo.name, len(prompt),
     )
 
-    resp = _post_with_retry(url, body)
-    if resp.status_code != 200:
-        logger.error(
-            "nanobanana http_error status=%d body=%s", resp.status_code, resp.text[:500]
-        )
-        raise _friendly_http_error(resp.status_code, resp.text)
+    # The model occasionally returns an empty candidate (no image, no text),
+    # typically a transient hiccup or a soft safety stop. One re-ask is free
+    # on the image tier and resolves most of these, so try twice.
+    last_error: NanoBananaError | None = None
+    for attempt in (1, 2):
+        resp = _post_with_retry(url, body)
+        if resp.status_code != 200:
+            logger.error(
+                "nanobanana http_error status=%d body=%s",
+                resp.status_code, resp.text[:500],
+            )
+            raise _friendly_http_error(resp.status_code, resp.text)
+        try:
+            return _extract_image(resp.json())
+        except NanoBananaError as exc:
+            last_error = exc
+            logger.warning("nanobanana empty_result attempt=%d error=%s", attempt, exc)
+            time.sleep(RETRY_DELAY_S)
+    raise last_error
 
-    data = resp.json()
+
+def _extract_image(data: dict) -> tuple[bytes, str]:
+    """Pull the generated image out of a generateContent response."""
     candidates = data.get("candidates") or []
     if not candidates:
         feedback = data.get("promptFeedback", {})
         logger.error("nanobanana no_candidates feedback=%s", feedback)
         raise NanoBananaError(
-            "Nano Banana returned no result (the request may have been blocked "
-            f"by safety filters: {feedback.get('blockReason', 'unknown reason')})."
+            "Nano Banana returned no result (the request was blocked: "
+            f"{feedback.get('blockReason', 'unknown reason')}). Try a different "
+            "photo - clear, well-lit, with the relevant body area visible."
         )
 
+    candidate = candidates[0]
     text_notes = []
-    for part in candidates[0].get("content", {}).get("parts", []):
+    for part in candidate.get("content", {}).get("parts", []):
         inline = part.get("inlineData")
         if inline and inline.get("data"):
             mime = inline.get("mimeType", "image/png")
@@ -159,8 +176,26 @@ def generate_tryon_image(
         if part.get("text"):
             text_notes.append(part["text"])
 
-    logger.error("nanobanana no_image_part text=%s", " ".join(text_notes)[:300])
+    finish_reason = candidate.get("finishReason", "UNKNOWN")
+    logger.error(
+        "nanobanana no_image_part finish_reason=%s text=%s",
+        finish_reason, " ".join(text_notes)[:300],
+    )
+    if text_notes:
+        raise NanoBananaError(
+            f"Nano Banana answered with text instead of an image: "
+            f"{' '.join(text_notes)[:200]}"
+        )
+    if finish_reason in (
+        "IMAGE_SAFETY", "SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "IMAGE_OTHER",
+    ):
+        raise NanoBananaError(
+            "Nano Banana declined to edit this photo (model refusal: "
+            f"{finish_reason}). This sometimes happens with photos of people - "
+            "try a different photo with good lighting, or a newer model via "
+            "NANOBANANA_MODEL (e.g. gemini-3.1-flash-image)."
+        )
     raise NanoBananaError(
-        "Nano Banana answered with text instead of an image"
-        + (f": {' '.join(text_notes)[:200]}" if text_notes else ".")
+        f"Nano Banana returned an empty result (finish reason: {finish_reason}). "
+        "Please try again."
     )
