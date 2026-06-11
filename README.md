@@ -16,7 +16,7 @@ then shows both in a minimal frontend, with the exact generation prompt inspecta
 | Input photo | Try-on result |
 | --- | --- |
 | ![Synthetic input portrait](docs/demo/input_face.jpg) | ![Gold Cross Pendant Necklace try-on](docs/demo/result_necklace.jpg) *Gold Cross Pendant Necklace* |
-| *(same face photo)* | ![Gold Drop Earrings try-on](docs/demo/result_earrings.jpg) *Gold Drop Earrings* — the second earring is realistically occluded by hair, exactly as the prompt's occlusion rules request |
+| *(same face photo)* | ![Gold Drop Earrings try-on, prompt v2](docs/demo/result_earrings_v2.jpg) *Gold Drop Earrings (prompt v2)* — both earrings emerge realistically below the hair, with no invented ears; the v1 output ([before](docs/demo/result_earrings.jpg)) silently omitted one |
 | ![Synthetic input hand photo](docs/demo/input_hand.jpg) | ![Three-Stone Diamond Ring try-on](docs/demo/result_ring.jpg) *Three-Stone Diamond Ring* — note: the product photo contains two rings, and the per-item prompt hint correctly restricts the edit to the three-stone ring only |
 | *(same hand photo)* | ![Mughal Enamel Bangle try-on](docs/demo/result_bracelet.jpg) *Mughal Enamel Bangle* |
 
@@ -27,7 +27,7 @@ then shows both in a minimal frontend, with the exact generation prompt inspecta
 | Input photo | Try-on result |
 | --- | --- |
 | ![Synthetic full-body input](docs/demo/input_body.jpg) | ![Breton Striped Top try-on](docs/demo/result_breton_top.jpg) *Breton Striped Top* — the stripes stay evenly spaced and follow the body's contours; leggings, shoes, face and background untouched |
-| *(same body photo)* | ![Emerald Wrap Midi Dress try-on](docs/demo/result_wrap_dress.jpg) *Emerald Wrap Midi Dress* — full outfit replacement with faithful wrap bodice, flutter sleeves and tie waist |
+| *(same body photo)* | ![Emerald Wrap Midi Dress try-on, prompt v2](docs/demo/result_wrap_dress_v2.jpg) *Emerald Wrap Midi Dress (prompt v2)* — faithful wrap bodice and tie waist, hem at its true lower-calf length with ankles and shoes preserved; the v1 output ([before](docs/demo/result_wrap_dress.jpg)) drifted longer |
 
 🎬 **Video:** [docs/demo/result_dress_video.mp4](docs/demo/result_dress_video.mp4) — a 6-second LTX 2.3 clip of the dress try-on with natural fabric motion.
 
@@ -198,7 +198,7 @@ If credits run out, the API returns the image with a friendly `video_error` ("in
 
 - **Verified live:** image try-on works end-to-end for **all four jewelry types** — necklace and earrings on a face photo, ring and bracelet on a hand photo — and for **clothing tops and dresses** on a full-body photo (all results above are unedited app outputs). Both LTX video runs worked first try on the same pipeline.
 - **Not live-tested:** the oxford shirt, black dress and jeans share the verified clothing path but were not individually generated, to conserve quota; their prompt branches are covered by tests and all three are in the benchmark for the next full sweep.
-- **Realism is improved, not solved.** The demo images above predate prompt v2; their two confirmed defects — hem drift on the wrap dress and slight re-framing on the ring — are exactly what the v2 constraints, aspect pinning and the benchmark metrics now target (see [eval/FAILURES.md](eval/FAILURES.md) for the current ledger). Single-pass editing models retain a smoothing bias ("AI gloss"): the photographic-character prompt section and the noise-parity metric reduce and detect it, but cannot fully eliminate it.
+- **Realism is improved, not solved.** The two confirmed v1 defects — hem drift on the wrap dress and earring omission under hair — are fixed and benchmark-verified on the hard subset ([eval/BENCHMARK_RESULTS.md](eval/BENCHMARK_RESULTS.md)), with aspect drift now 0.0 across all six hard cases. Remaining known imperfections, tracked in [eval/FAILURES.md](eval/FAILURES.md): mild face smoothing ("AI gloss") on full-body edits, occasional slight over-sizing of pendants, and noise-parity metrics that over-flag striped garments. Single-pass editing models retain a smoothing bias the prompts reduce but cannot eliminate.
 - **Free-tier image quota is low.** Nano Banana free-tier image generation has small daily/per-minute caps; the app surfaces HTTP 429 as a clear, friendly message (screenshot above). Some Google projects have *zero* free image-gen quota — if every request 429s instantly, the fix is a key from a project with image quota, not a code change.
 - **Demo inputs are synthetic.** All "users" in the demos were generated for this project so no real person's likeness ships in the repo.
 - **Clothing product images are project-generated.** Clean royalty-free *product-style* garment photos (ghost-mannequin, white background) are hard to source legitimately, so the five clothing catalog images were generated with Nano Banana for this project and are labeled as such in `clothing.json`. The jewelry catalog uses real museum/Commons photographs.

@@ -18,9 +18,10 @@ human-confirmed.
 - **Root cause:** prompt loophole ("unless the garment naturally covers them")
   plus a catalog description that conflicted with the product photo's actual
   hem length; no body-landmark constraint existed.
-- **Status:** addressed in prompt v2 (loophole removed, hem landmarks, per-item
-  `coverage` fields, visible-skin rule; `lower_skin_ratio` metric watches for
-  regressions). Verify via `python eval/run_eval.py --cases clothing-green-wrap-dress`.
+- **Status:** **fixed — benchmark-verified** (run `20260611-054604`): hem at
+  the lower calf, ankles and shoes visible, `lower_skin_ratio 1.03`. See
+  [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md). The `lower_skin_ratio` metric
+  guards against regression.
 
 ## FM-B · Earring omission under hair occlusion
 
@@ -30,10 +31,12 @@ human-confirmed.
 - **Root cause:** the v1 prompt permitted occlusion but gave the model no rule
   for *how conservative* to be, and the UI never warned the user that hidden
   ears can't take earrings.
-- **Status:** by design the model must never invent hidden ears (v2 strict
-  occlusion rules); the UI now warns when an earrings item is selected. An
-  omitted earring on a hidden ear is *correct* behavior — the failure was the
-  silent surprise, not the omission.
+- **Status:** **fixed — benchmark-verified** (run `20260611-054604`): with the
+  v2 strict occlusion rules, both earrings now render, each emerging
+  realistically below the hair, with no invented anatomy
+  ([docs/demo/result_earrings_v2.jpg](../docs/demo/result_earrings_v2.jpg)).
+  The UI additionally warns when an earrings item is selected. A fully hidden
+  ear still correctly receives no earring — that remains by design.
 
 ## FM-C · Identity / lighting collapse on the older model generation
 
