@@ -1,0 +1,25 @@
+{
+  "description": "Golden benchmark set: every catalog item paired with a fixed synthetic input photo. Cases marked hard=true form the small regression subset (the failure modes found in the image-quality audit). Inputs are project-generated synthetic people so the benchmark is shippable.",
+  "inputs": {
+    "face": "docs/demo/input_face.jpg",
+    "hand": "docs/demo/input_hand.jpg",
+    "body": "docs/demo/input_body.jpg"
+  },
+  "cases": [
+    { "id": "necklace-gemset",            "item_id": "necklace-gemset",            "hard": false, "notes": "ornate multi-stone necklace; fidelity stress (stone count/colors)" },
+    { "id": "necklace-gold-beads",        "item_id": "necklace-gold-beads",        "hard": false, "notes": "product photo also shows earrings; prompt_hint must exclude them" },
+    { "id": "necklace-cross-pendant",     "item_id": "necklace-cross-pendant",     "hard": true,  "notes": "strongest necklace baseline; pendant scale + chain contrast" },
+    { "id": "necklace-coral-coin",        "item_id": "necklace-coral-coin",        "hard": false, "notes": "collar fit; many small dangling elements" },
+    { "id": "earrings-gold-drop",         "item_id": "earrings-gold-drop",         "hard": true,  "notes": "HARD: input hair partially covers ears; strict occlusion rules apply" },
+    { "id": "earrings-gold-hoop",         "item_id": "earrings-gold-hoop",         "hard": false, "notes": "single product hoop must become a matching pair" },
+    { "id": "ring-three-stone-diamond",   "item_id": "ring-three-stone-diamond",   "hard": true,  "notes": "strongest ring baseline; two rings in product photo, apply one" },
+    { "id": "ring-gold-filigree",         "item_id": "ring-gold-filigree",         "hard": false, "notes": "large statement face; scale-anchor stress" },
+    { "id": "bracelet-enamel-bangle",     "item_id": "bracelet-enamel-bangle",     "hard": true,  "notes": "strongest bracelet baseline; complex enamel pattern fidelity" },
+    { "id": "bracelet-gold-spiral",       "item_id": "bracelet-gold-spiral",       "hard": false, "notes": "multi-coil wrap; risk of coil count drift" },
+    { "id": "clothing-white-oxford",      "item_id": "clothing-white-oxford",      "hard": false, "notes": "white garment on light background; edge fidelity" },
+    { "id": "clothing-breton-top",        "item_id": "clothing-breton-top",        "hard": true,  "notes": "pattern fidelity: stripe spacing/direction must survive" },
+    { "id": "clothing-green-wrap-dress",  "item_id": "clothing-green-wrap-dress",  "hard": true,  "notes": "HARD: documented midi->maxi hem drift + leg erasure failure" },
+    { "id": "clothing-black-dress",       "item_id": "clothing-black-dress",       "hard": false, "notes": "knee-length hem; lower legs must stay visible" },
+    { "id": "clothing-blue-jeans",        "item_id": "clothing-blue-jeans",        "hard": false, "notes": "lower-body-only swap; top must remain untouched" }
+  ]
+}

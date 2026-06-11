@@ -27,3 +27,6 @@ Thumbs.db
 .vscode/
 .idea/
 backend/server.*.log
+
+# Evaluation run outputs (regenerable, may contain large images)
+eval/runs/
