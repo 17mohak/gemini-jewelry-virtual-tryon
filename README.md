@@ -28,6 +28,9 @@ then shows both in a minimal frontend, with the exact generation prompt inspecta
 | --- | --- |
 | ![Synthetic full-body input](docs/demo/input_body.jpg) | ![Breton Striped Top try-on](docs/demo/result_breton_top.jpg) *Breton Striped Top* — the stripes stay evenly spaced and follow the body's contours; leggings, shoes, face and background untouched |
 | *(same body photo)* | ![Emerald Wrap Midi Dress try-on, prompt v2](docs/demo/result_wrap_dress_v2.jpg) *Emerald Wrap Midi Dress (prompt v2)* — faithful wrap bodice and tie waist, hem at its true lower-calf length with ankles and shoes preserved; the v1 output ([before](docs/demo/result_wrap_dress.jpg)) drifted longer |
+| *(same body photo)* | ![White Oxford Shirt try-on](docs/demo/result_white_oxford.jpg) *White Oxford Shirt* — collar, buttons and chest pocket faithful; hem just below the hips; lower body untouched (from the full catalog sweep) |
+| *(same body photo)* | ![Black A-Line Dress try-on](docs/demo/result_black_dress.jpg) *Black A-Line Dress* — knee-length hem held exactly, footwear preserved (the model invented sheer tights under the hem — documented as FM-E) |
+| *(same body photo)* | ![Light-Blue Straight Jeans try-on](docs/demo/result_jeans.jpg) *Light-Blue Straight Jeans* — lower-body-only swap; five-pocket design and wash preserved, top untouched |
 
 🎬 **Video:** [docs/demo/result_dress_video.mp4](docs/demo/result_dress_video.mp4) — a 6-second LTX 2.3 clip of the dress try-on with natural fabric motion.
 
@@ -63,7 +66,7 @@ Local filesystem      backend/uploads/  backend/outputs/  (request-scoped names)
 | Layer | Choice |
 | --- | --- |
 | Backend | Python, FastAPI, Uvicorn, Pydantic |
-| Image try-on | Nano Banana (`gemini-2.5-flash-image`), REST |
+| Image try-on | Nano Banana (`gemini-3.1-flash-image` default, REST) |
 | Video | LTX 2.3 (`ltx-2-3-fast`), synchronous image-to-video API |
 | Image handling | Pillow, httpx |
 | Frontend | Plain HTML / CSS / JS — no frameworks |
@@ -120,7 +123,7 @@ python -m pytest tests/ -v
 
 | Variable | Purpose | Where to get it |
 | --- | --- | --- |
-| `NANOBANANA_API_KEY` | image try-on | [Google AI Studio](https://aistudio.google.com/apikey) — free; create an API key. Nano Banana's model id is `gemini-2.5-flash-image`; both `AIza...` and Vertex-Express `AQ. ...` keys work. |
+| `NANOBANANA_API_KEY` | image try-on | [Google AI Studio](https://aistudio.google.com/apikey) — free; create an API key. The default model id is `gemini-3.1-flash-image` (the older `gemini-2.5-flash-image` works via `NANOBANANA_MODEL` but refuses some clothing edits); both `AIza...` and Vertex-Express `AQ. ...` keys work. |
 | `LTX_API_KEY` | video | [LTX API console](https://ltx.io/model/api) — keys look like `ltxv_...`; billed per second of generated video. |
 
 Optional overrides (`NANOBANANA_MODEL`, `LTX_MODEL`, `LTX_API_BASE`, `LTX_VIDEO_DURATION`, `APP_ENV`) are documented in [.env.example](.env.example). Secrets live only in `.env`, which is gitignored.
@@ -181,7 +184,7 @@ Output realism is treated as something to *measure*, not assert:
   python eval/run_eval.py --all       # full 15-case catalog sweep
   python eval/run_eval.py --all --dry-run   # validate without API calls
   ```
-  Each run writes images plus `report.md` / `report.json` into `eval/runs/<timestamp>/`, scoring aspect drift, background preservation, noise/sharpness parity ("AI gloss" detection), brightness drift, and lower-body visible-skin conservation (leg-erasure detection). **These heuristics flag outputs for human review — they do not certify photorealism**; each report includes a human rubric column to fill in.
+  Each run writes images plus `report.md` / `report.json` into `eval/runs/<timestamp>/`, scoring aspect drift, background preservation, noise/sharpness parity ("AI gloss" detection), brightness drift, and lower-body visible-skin conservation (leg-erasure detection). **These heuristics flag outputs for human review — they do not certify photorealism**; each report includes a human rubric column to fill in. The reviewed reports of the completed full-catalog sweep (run `20260611-070715`) are committed under [`eval/reports/`](eval/reports/), and the headline results are in [eval/BENCHMARK_RESULTS.md](eval/BENCHMARK_RESULTS.md).
 - **Failure gallery.** Flagged outputs are auto-copied to `eval/failures/`; [eval/FAILURES.md](eval/FAILURES.md) documents the human-confirmed failure modes with evidence and status. Image generations only — the harness never calls the video API.
 
 ## Video budget
@@ -196,9 +199,9 @@ If credits run out, the API returns the image with a friendly `video_error` ("in
 
 ## Honest status & limitations
 
-- **Verified live:** image try-on works end-to-end for **all four jewelry types** — necklace and earrings on a face photo, ring and bracelet on a hand photo — and for **clothing tops and dresses** on a full-body photo (all results above are unedited app outputs). Both LTX video runs worked first try on the same pipeline.
-- **Not live-tested:** the oxford shirt, black dress and jeans share the verified clothing path but were not individually generated, to conserve quota; their prompt branches are covered by tests and all three are in the benchmark for the next full sweep.
-- **Realism is improved, not solved.** The two confirmed v1 defects — hem drift on the wrap dress and earring omission under hair — are fixed and benchmark-verified on the hard subset ([eval/BENCHMARK_RESULTS.md](eval/BENCHMARK_RESULTS.md)), with aspect drift now 0.0 across all six hard cases. Remaining known imperfections, tracked in [eval/FAILURES.md](eval/FAILURES.md): mild face smoothing ("AI gloss") on full-body edits, occasional slight over-sizing of pendants, and noise-parity metrics that over-flag striped garments. Single-pass editing models retain a smoothing bias the prompts reduce but cannot eliminate.
+- **Verified live, catalog-wide:** the full 15-case benchmark sweep (run `20260611-070715`) generated and human-reviewed **every catalog item** — all 10 jewelry pieces and all 5 garments — with 0 API failures, aspect drift 0.0 on every case, and no hard failures (no identity loss, hem drift, leg erasure, invented ears or background drift). Reviewed reports: [eval/reports/](eval/reports/), summary: [eval/BENCHMARK_RESULTS.md](eval/BENCHMARK_RESULTS.md). Both LTX video runs worked first try on the same pipeline (video untouched since — image quality was the focus).
+- **One catalog fix came out of the sweep:** the gold-hoop earrings' description said "thick" while the product photo shows a slender hoop; the model followed the photo and the mismatch cost fidelity. The description was corrected and only that case re-generated (clean re-run, `20260611-071658`).
+- **Realism is improved, not solved.** The two confirmed v1 defects — hem drift on the wrap dress and earring omission under hair — are fixed and now verified across the whole catalog. Remaining known imperfections, tracked in [eval/FAILURES.md](eval/FAILURES.md): mild face smoothing ("AI gloss") on full-body edits (identity 4/5 on all five clothing cases), occasional slight over-sizing of pendants and statement faces, noise-parity metrics that over-flag striped garments, and a newly documented mode (FM-E) where a garment swap invents a plausible under-layer (sheer tights under a knee-length dress, socks above sneakers) when the product doesn't cover what it removed. Single-pass editing models retain a smoothing bias the prompts reduce but cannot eliminate.
 - **Free-tier image quota is low.** Nano Banana free-tier image generation has small daily/per-minute caps; the app surfaces HTTP 429 as a clear, friendly message (screenshot above). Some Google projects have *zero* free image-gen quota — if every request 429s instantly, the fix is a key from a project with image quota, not a code change.
 - **Demo inputs are synthetic.** All "users" in the demos were generated for this project so no real person's likeness ships in the repo.
 - **Clothing product images are project-generated.** Clean royalty-free *product-style* garment photos (ghost-mannequin, white background) are hard to source legitimately, so the five clothing catalog images were generated with Nano Banana for this project and are labeled as such in `clothing.json`. The jewelry catalog uses real museum/Commons photographs.

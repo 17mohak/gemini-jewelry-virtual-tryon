@@ -1,0 +1,22 @@
+[
+  {
+    "case": "earrings-gold-hoop",
+    "item": "Classic Gold Hoop Earrings",
+    "category": "jewelry",
+    "type": "earrings",
+    "input": "docs\\demo\\input_face.jpg",
+    "hard": false,
+    "notes": "single product hoop must become a matching pair",
+    "status": "ok",
+    "output": "earrings-gold-hoop.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 1.96,
+      "noise_match": 1.051,
+      "sharpness_match": 1.064,
+      "brightness_drift": -1.46
+    },
+    "flags": [],
+    "human_rubric": "5/5/5/5/4 - slender tube now matches the product photo after the catalog metadata fix; only the visible ear receives a hoop (fully hidden ear left bare, by design)"
+  }
+]

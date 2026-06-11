@@ -1,0 +1,312 @@
+[
+  {
+    "case": "necklace-gemset",
+    "item": "Gem-Set Gold Necklace",
+    "category": "jewelry",
+    "type": "necklace",
+    "input": "docs\\demo\\input_face.jpg",
+    "hard": false,
+    "notes": "ornate multi-stone necklace; fidelity stress (stone count/colors)",
+    "status": "ok",
+    "output": "necklace-gemset.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.07,
+      "noise_match": 1.32,
+      "sharpness_match": 1.249,
+      "brightness_drift": -2.97
+    },
+    "flags": [
+      "noise_match=1.32 outside (0.75, 1.3)"
+    ],
+    "human_rubric": "4/5/4/5/5 - noise flag is mild grain amplification on the wall (just over 1.30); medallion band mildly simplified; reviewed acceptable"
+  },
+  {
+    "case": "necklace-gold-beads",
+    "item": "Gold Filigree Bead Necklace",
+    "category": "jewelry",
+    "type": "necklace",
+    "input": "docs\\demo\\input_face.jpg",
+    "hard": false,
+    "notes": "product photo also shows earrings; prompt_hint must exclude them",
+    "status": "ok",
+    "output": "necklace-gold-beads.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.02,
+      "noise_match": 1.055,
+      "sharpness_match": 1.079,
+      "brightness_drift": -2.4
+    },
+    "flags": [],
+    "human_rubric": "5/5/5/5/4 - prompt_hint correctly excluded the product photo's earrings; darker clasp bead rendered visible mid-strand"
+  },
+  {
+    "case": "necklace-cross-pendant",
+    "item": "Gold Cross Pendant Necklace",
+    "category": "jewelry",
+    "type": "necklace",
+    "input": "docs\\demo\\input_face.jpg",
+    "hard": true,
+    "notes": "strongest necklace baseline; pendant scale + chain contrast",
+    "status": "ok",
+    "output": "necklace-cross-pendant.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.17,
+      "noise_match": 1.094,
+      "sharpness_match": 1.103,
+      "brightness_drift": -1.88
+    },
+    "flags": [],
+    "human_rubric": "5/5/5/5/4 - pendant slightly large vs the scale anchor"
+  },
+  {
+    "case": "necklace-coral-coin",
+    "item": "Coral & Gold Coin Collar Necklace",
+    "category": "jewelry",
+    "type": "necklace",
+    "input": "docs\\demo\\input_face.jpg",
+    "hard": false,
+    "notes": "collar fit; many small dangling elements",
+    "status": "ok",
+    "output": "necklace-coral-coin.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.04,
+      "noise_match": 1.126,
+      "sharpness_match": 1.147,
+      "brightness_drift": -3.47
+    },
+    "flags": [],
+    "human_rubric": "4/5/5/5/4 - drapes looser than the product's tight collar style"
+  },
+  {
+    "case": "earrings-gold-drop",
+    "item": "Gold Drop Earrings",
+    "category": "jewelry",
+    "type": "earrings",
+    "input": "docs\\demo\\input_face.jpg",
+    "hard": true,
+    "notes": "HARD: input hair partially covers ears; strict occlusion rules apply",
+    "status": "ok",
+    "output": "earrings-gold-drop.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 1.93,
+      "noise_match": 1.097,
+      "sharpness_match": 1.106,
+      "brightness_drift": -0.88
+    },
+    "flags": [],
+    "human_rubric": "4/5/4/5/4 - both earrings emerge below the hair, no invented ears; slightly long vs anchor; upper rings overlap a hair strand they should sit behind"
+  },
+  {
+    "case": "earrings-gold-hoop",
+    "item": "Classic Gold Hoop Earrings",
+    "category": "jewelry",
+    "type": "earrings",
+    "input": "docs\\demo\\input_face.jpg",
+    "hard": false,
+    "notes": "single product hoop must become a matching pair",
+    "status": "ok",
+    "output": "earrings-gold-hoop.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 1.84,
+      "noise_match": 1.067,
+      "sharpness_match": 1.072,
+      "brightness_drift": -1.16
+    },
+    "flags": [],
+    "human_rubric": "4/5/4/4/5 - hoop tube rendered thinner than the product photo; catalog description ('thick') contradicted the photo - superseded by re-run 20260611-071658 after the metadata fix"
+  },
+  {
+    "case": "ring-three-stone-diamond",
+    "item": "Three-Stone Diamond Ring",
+    "category": "jewelry",
+    "type": "ring",
+    "input": "docs\\demo\\input_hand.jpg",
+    "hard": true,
+    "notes": "strongest ring baseline; two rings in product photo, apply one",
+    "status": "ok",
+    "output": "ring-three-stone-diamond.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 1.89,
+      "noise_match": 1.043,
+      "sharpness_match": 1.085,
+      "brightness_drift": -1.99
+    },
+    "flags": [],
+    "human_rubric": "5/5/5/5/5 - single ring per hint, correct finger, correct scale"
+  },
+  {
+    "case": "ring-gold-filigree",
+    "item": "Gold Filigree Statement Ring",
+    "category": "jewelry",
+    "type": "ring",
+    "input": "docs\\demo\\input_hand.jpg",
+    "hard": false,
+    "notes": "large statement face; scale-anchor stress",
+    "status": "ok",
+    "output": "ring-gold-filigree.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.01,
+      "noise_match": 1.087,
+      "sharpness_match": 1.111,
+      "brightness_drift": -2.23
+    },
+    "flags": [],
+    "human_rubric": "4/5/5/5/4 - statement face renders slightly wider than the finger"
+  },
+  {
+    "case": "bracelet-enamel-bangle",
+    "item": "Mughal Enamel Bangle",
+    "category": "jewelry",
+    "type": "bracelet",
+    "input": "docs\\demo\\input_hand.jpg",
+    "hard": true,
+    "notes": "strongest bracelet baseline; complex enamel pattern fidelity",
+    "status": "ok",
+    "output": "bracelet-enamel-bangle.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.32,
+      "noise_match": 1.27,
+      "sharpness_match": 1.214,
+      "brightness_drift": -4.26
+    },
+    "flags": [],
+    "human_rubric": "4/5/5/5/4 - enamel pattern mildly simplified; sits slightly high at the wrist crease"
+  },
+  {
+    "case": "bracelet-gold-spiral",
+    "item": "Gold Spiral Wrap Bracelet",
+    "category": "jewelry",
+    "type": "bracelet",
+    "input": "docs\\demo\\input_hand.jpg",
+    "hard": false,
+    "notes": "multi-coil wrap; risk of coil count drift",
+    "status": "ok",
+    "output": "bracelet-gold-spiral.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 1.99,
+      "noise_match": 1.164,
+      "sharpness_match": 1.158,
+      "brightness_drift": -3.02
+    },
+    "flags": [],
+    "human_rubric": "5/5/4/5/5 - four coils and cone finials preserved; coil spacing slightly airy"
+  },
+  {
+    "case": "clothing-white-oxford",
+    "item": "White Oxford Shirt",
+    "category": "clothing",
+    "type": "top",
+    "input": "docs\\demo\\input_body.jpg",
+    "hard": false,
+    "notes": "white garment on light background; edge fidelity",
+    "status": "ok",
+    "output": "clothing-white-oxford.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.03,
+      "noise_match": 1.011,
+      "sharpness_match": 1.089,
+      "brightness_drift": 2.43,
+      "lower_skin_ratio": 1.025
+    },
+    "flags": [],
+    "human_rubric": "5/4/5/5/5 - collar/buttons/pocket faithful, hem below hips, lower body untouched; mild face smoothing"
+  },
+  {
+    "case": "clothing-breton-top",
+    "item": "Breton Striped Top",
+    "category": "clothing",
+    "type": "top",
+    "input": "docs\\demo\\input_body.jpg",
+    "hard": true,
+    "notes": "pattern fidelity: stripe spacing/direction must survive",
+    "status": "ok",
+    "output": "clothing-breton-top.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 1.92,
+      "noise_match": 1.585,
+      "sharpness_match": 1.775,
+      "brightness_drift": -3.09,
+      "lower_skin_ratio": 1.043
+    },
+    "flags": [
+      "noise_match=1.585 outside (0.75, 1.3)",
+      "sharpness_match=1.775 outside (0.7, 1.4)"
+    ],
+    "human_rubric": "5/4/5/4/5 - flags are the documented stripe-energy metric artifact; stripes even and contour-following; reviewed clean"
+  },
+  {
+    "case": "clothing-green-wrap-dress",
+    "item": "Emerald Wrap Midi Dress",
+    "category": "clothing",
+    "type": "dress",
+    "input": "docs\\demo\\input_body.jpg",
+    "hard": true,
+    "notes": "HARD: documented midi->maxi hem drift + leg erasure failure",
+    "status": "ok",
+    "output": "clothing-green-wrap-dress.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.29,
+      "noise_match": 1.024,
+      "sharpness_match": 1.143,
+      "brightness_drift": -8.81,
+      "lower_skin_ratio": 1.034
+    },
+    "flags": [],
+    "human_rubric": "5/4/5/4/5 - hem at lower calf per product, ankles and sneakers preserved; mild face smoothing"
+  },
+  {
+    "case": "clothing-black-dress",
+    "item": "Black A-Line Dress",
+    "category": "clothing",
+    "type": "dress",
+    "input": "docs\\demo\\input_body.jpg",
+    "hard": false,
+    "notes": "knee-length hem; lower legs must stay visible",
+    "status": "ok",
+    "output": "clothing-black-dress.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.41,
+      "noise_match": 1.048,
+      "sharpness_match": 1.077,
+      "brightness_drift": -9.4,
+      "lower_skin_ratio": 1.035
+    },
+    "flags": [],
+    "human_rubric": "4/4/4/4/5 - hem at knee, footwear preserved; input's opaque leggings replaced with sheer tights (new FM-E, invented under-layer)"
+  },
+  {
+    "case": "clothing-blue-jeans",
+    "item": "Light-Blue Straight Jeans",
+    "category": "clothing",
+    "type": "trousers",
+    "input": "docs\\demo\\input_body.jpg",
+    "hard": false,
+    "notes": "lower-body-only swap; top must remain untouched",
+    "status": "ok",
+    "output": "clothing-blue-jeans.jpg",
+    "metrics": {
+      "aspect_drift": 0.0,
+      "border_preservation": 2.41,
+      "noise_match": 1.025,
+      "sharpness_match": 1.157,
+      "brightness_drift": 1.37,
+      "lower_skin_ratio": 0.997
+    },
+    "flags": [],
+    "human_rubric": "5/4/4/4/5 - five-pocket design and wash faithful, top untouched; small white socks invented at the ankles (FM-E)"
+  }
+]
