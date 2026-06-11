@@ -13,9 +13,9 @@ from backend.config import CATALOG_DIR
 client = TestClient(app)
 
 
-def make_photo_bytes() -> bytes:
+def make_photo_bytes(size: int = 512) -> bytes:
     buf = io.BytesIO()
-    Image.new("RGB", (64, 64), (180, 150, 120)).save(buf, "JPEG")
+    Image.new("RGB", (size, size), (180, 150, 120)).save(buf, "JPEG")
     return buf.getvalue()
 
 
@@ -110,6 +110,18 @@ def test_tryon_rejects_non_image_upload():
     )
     assert resp.status_code == 400
     assert "Unsupported file type" in resp.json()["detail"]
+
+
+def test_tryon_rejects_tiny_photo():
+    """Input guard: very small photos produce soft results and are refused."""
+    necklace = next(i for i in client.get("/api/catalog").json() if i["type"] == "necklace")
+    resp = client.post(
+        "/api/tryon",
+        data={"item_id": necklace["id"]},
+        files={"face_photo": ("face.jpg", make_photo_bytes(size=96), "image/jpeg")},
+    )
+    assert resp.status_code == 400
+    assert "too small" in resp.json()["detail"]
 
 
 # ── Try-on success (Nano Banana + LTX mocked) ────────────────────────────────

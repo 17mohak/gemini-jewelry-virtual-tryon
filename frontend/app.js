@@ -32,6 +32,37 @@ const LOADING_MESSAGES = {
   video: "Generating the try-on image, then a 6-second LTX video — the video step can take a few minutes…",
 };
 
+/* Pre-generation guidance, shown BEFORE any quota/credits are spent.
+   Earrings get the strongest warning: hidden ears are never hallucinated,
+   so a covered ear simply gets no earring. */
+const GUARD_NOTES = {
+  earrings:
+    "Earrings need visible ears: if hair covers an ear, that earring is " +
+    "left out rather than faked (no invented ears). For best results use a " +
+    "photo where both ears are at least partly visible.",
+  necklace:
+    "Best results: neck and collarbones clearly visible, not covered by " +
+    "hair, scarves or high collars.",
+  ring:
+    "Best results: back of the hand facing the camera with fingers visible " +
+    "and in focus.",
+  bracelet:
+    "Best results: wrist clearly visible and not covered by sleeves.",
+  top:
+    "Best results: a standing, front-facing full-body photo. Your lower " +
+    "body and shoes are kept exactly as photographed.",
+  dress:
+    "Best results: a standing, front-facing full-body photo with your legs " +
+    "and shoes visible — the dress is rendered at its true product length, " +
+    "never extended to cover them.",
+  trousers:
+    "Best results: a standing, front-facing full-body photo with legs and " +
+    "shoes visible. Your top is kept exactly as photographed.",
+};
+
+const MIN_PHOTO_SIDE = 256;   // hard block (matches the backend guard)
+const SOFT_PHOTO_SIDE = 512;  // warn only
+
 /* ── Uploads ── */
 
 function wireUpload(kind) {
@@ -48,13 +79,37 @@ function wireUpload(kind) {
       input.value = "";
       return;
     }
-    state[`${kind}File`] = file;
-    preview.src = URL.createObjectURL(file);
-    preview.hidden = false;
-    placeholder.hidden = true;
-    box.classList.add("filled");
-    hideError();
-    updateReadiness();
+    // Resolution guard: block unusably small photos BEFORE any generation
+    // is spent; softly warn on borderline ones.
+    const probe = new Image();
+    const url = URL.createObjectURL(file);
+    probe.onload = () => {
+      const shortest = Math.min(probe.naturalWidth, probe.naturalHeight);
+      if (shortest < MIN_PHOTO_SIDE) {
+        showError(
+          `That photo is too small (${probe.naturalWidth}×${probe.naturalHeight}). ` +
+          `Use one at least ${MIN_PHOTO_SIDE} px on its shortest side — small ` +
+          "inputs produce soft, unrealistic results."
+        );
+        URL.revokeObjectURL(url);
+        input.value = "";
+        return;
+      }
+      state[`${kind}File`] = file;
+      state[`${kind}LowRes`] = shortest < SOFT_PHOTO_SIDE;
+      preview.src = url;
+      preview.hidden = false;
+      placeholder.hidden = true;
+      box.classList.add("filled");
+      hideError();
+      updateReadiness();
+    };
+    probe.onerror = () => {
+      showError("That file could not be read as an image.");
+      URL.revokeObjectURL(url);
+      input.value = "";
+    };
+    probe.src = url;
   });
 }
 
@@ -139,17 +194,32 @@ function selectItem(item, card) {
 
 function updateReadiness() {
   const note = $("requirement-note");
+  const guard = $("guard-note");
   const btn = $("tryon-btn");
   const item = state.selectedItem;
 
   if (!item) {
     note.textContent = "Pick an item above to get started.";
+    guard.hidden = true;
     btn.disabled = true;
     return;
   }
   const needed = item.photo_kind; // "face" | "hand" | "body"
   const file = state[`${needed}File`];
   const noun = PHOTO_NOUN[needed];
+
+  // Pre-generation guidance for the selected item type, plus a soft
+  // low-resolution warning for the photo it will use.
+  const tips = [];
+  if (GUARD_NOTES[item.type]) tips.push(GUARD_NOTES[item.type]);
+  if (file && state[`${needed}LowRes`]) {
+    tips.push(
+      `Heads-up: your ${noun} photo is on the small side (under ${SOFT_PHOTO_SIDE} px) — results may look soft.`
+    );
+  }
+  guard.textContent = tips.join(" ");
+  guard.hidden = tips.length === 0;
+
   if (!file) {
     note.textContent = `“${item.name}” is a ${item.type} — it needs your ${noun} photo. Upload it in step 1.`;
     btn.disabled = true;
