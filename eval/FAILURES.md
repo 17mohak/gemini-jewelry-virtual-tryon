@@ -75,7 +75,11 @@ human-confirmed.
 - **Evidence:** full-sweep run `20260611-070715`: the Black A-Line Dress case
   replaced the input's opaque full-length leggings with sheer black tights
   below the knee-length hem; the jeans case added small white socks at the
-  ankles where the input showed none.
+  ankles where the input showed none. The realism audit
+  ([REALISM_AUDIT.md](REALISM_AUDIT.md), crop `audit/07_ankles…`) confirmed a
+  third variant at zoom: the wrap-dress case rendered *bare* lower legs where
+  the input wore opaque leggings — so all three possible inventions (tights /
+  socks / bare skin) occur, chosen unpredictably.
 - **Root cause:** under-layer ambiguity, not a prompt bug: the dress swap
   legitimately removes the leggings, the product covers only to the knee, and
   the input had no bare lower-leg skin to preserve — so the model must invent

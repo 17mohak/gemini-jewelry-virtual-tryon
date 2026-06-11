@@ -186,6 +186,7 @@ Output realism is treated as something to *measure*, not assert:
   ```
   Each run writes images plus `report.md` / `report.json` into `eval/runs/<timestamp>/`, scoring aspect drift, background preservation, noise/sharpness parity ("AI gloss" detection), brightness drift, and lower-body visible-skin conservation (leg-erasure detection). **These heuristics flag outputs for human review — they do not certify photorealism**; each report includes a human rubric column to fill in. The reviewed reports of the completed full-catalog sweep (run `20260611-070715`) are committed under [`eval/reports/`](eval/reports/), and the headline results are in [eval/BENCHMARK_RESULTS.md](eval/BENCHMARK_RESULTS.md).
 - **Failure gallery.** Flagged outputs are auto-copied to `eval/failures/`; [eval/FAILURES.md](eval/FAILURES.md) documents the human-confirmed failure modes with evidence and status. Image generations only — the harness never calls the video API.
+- **Realism audit.** A zoom-level audit of the full sweep ([eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md), with evidence crops in `eval/audit/`) classifies every remaining synthetic-feel cause (missing contact shadows, no environmental color in metals, hair depth-ordering, fabric microstructure, whole-image re-synthesis) by root cause — prompt, asset, input, evaluation, model, or architecture — and ranks the mitigation roadmap. Its key conclusion: prompts are no longer the bottleneck; the next gains are a pixel-preserving compositor, edit-region grain/color harmonization, and a Pro-tier model A/B.
 
 ## Video budget
 
