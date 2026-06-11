@@ -1,8 +1,8 @@
 """Nano Banana image generation: turns (user photo + product photo + prompt)
 into a photorealistic try-on image.
 
-Nano Banana is Google's image-editing model (API model id
-``gemini-2.5-flash-image``), served over REST by the Generative Language API.
+Nano Banana is Google's image-editing model family (default model id
+``gemini-3.1-flash-image``), served over REST by the Generative Language API.
 The service sends the edit prompt plus both images as inline data and returns
 the generated image bytes.
 """

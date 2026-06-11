@@ -66,8 +66,8 @@
       "name": "Classic Gold Hoop Earrings",
       "type": "earrings",
       "image": "images/earrings_gold_hoop.jpg",
-      "description": "Smooth, thick polished gold hoop earrings with a rounded tubular profile and a small tapered opening.",
-      "prompt_hint": "The product photo shows a single hoop; render it as a matching pair, one hoop worn on each ear.",
+      "description": "Slender polished gold hoop earrings with a rounded tubular profile, a subtle lengthwise ridge and a small tapered opening.",
+      "prompt_hint": "The product photo shows a single hoop; render it as a matching pair, one hoop worn on each ear, keeping the hoop's slender tube thickness exactly as in the product photo.",
       "attribution": {
         "title": "Hoop Earring, The Metropolitan Museum of Art",
         "license": "CC0 1.0",
