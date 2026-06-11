@@ -68,7 +68,8 @@ Local filesystem      backend/uploads/  backend/outputs/  (request-scoped names)
 | Image handling | Pillow, httpx |
 | Frontend | Plain HTML / CSS / JS — no frameworks |
 | Config | python-dotenv (`.env`), nothing hardcoded |
-| Tests | pytest — 54 tests |
+| Tests | pytest — 90 tests |
+| Evaluation | local benchmark harness (`eval/`), Pillow-only metrics |
 
 ```
 backend/
@@ -84,7 +85,8 @@ backend/
   catalog/images/         # product photos (stored locally)
   uploads/  outputs/      # user photos / generated artifacts (gitignored)
 frontend/                 # index.html, styles.css, app.js
-tests/                    # jewelry + clothing prompt builders, routing, routes, LTX helpers
+tests/                    # jewelry + clothing prompt builders, routing, routes, LTX, eval harness
+eval/                     # benchmark definitions, metrics, run_eval.py, failure gallery
 docs/demo/                # real generated results    docs/screenshots/  UI captures
 scripts/                  # provenance: catalog image sourcing script
 ```
@@ -152,11 +154,35 @@ The prompt is **assembled by code** in [`backend/services/prompt_builder.py`](ba
 
 A separate `build_video_prompt()` drives LTX: since the try-on image is the first frame, it only asks for *subtle motion* — a slow head turn or hand rotation so light glints off the piece, static camera — and explicitly forbids morphing, warping, or scene changes.
 
+### Prompt v2 — what evaluation changed
+
+An image-quality audit of real outputs drove a second prompt iteration. The honest finding: v1 prompts were good at *placement* but under-specified for *photographic character* and *garment geometry*. v2 adds:
+
+- **Photographic-character section** (both builders): names the input's flash character, sensor noise, sharpness profile and white balance and requires the added jewelry/garment to inherit them. "Preserve the lighting" alone produced clean studio-lit garments pasted into noisy flash photos.
+- **Strict earring occlusion rules**: never move hair, never invent a hidden ear — a missing earring on a covered ear is correct behavior, a hallucinated ear is a failure. The UI warns about this *before* a generation is spent.
+- **Garment geometry constraints**: the v1 phrase letting clothing "naturally cover" footwear was a loophole the model used to lengthen dresses over the wearer's legs (documented in [eval/FAILURES.md](eval/FAILURES.md)). v2 removes it, pins hems to body landmarks (knee / mid-calf / ankle), adds a visible-skin conservation rule, and gives every clothing item a structured `coverage` field stating exactly what it covers and what must stay visible.
+- **Scale anchors** for jewelry (pendant 2–3 cm, drop earrings 2–5 cm, band 2–4 mm…) so pieces render at believable real-world sizes.
+
 ### Part 2: clothing prompts are deliberately separate
 
 Clothing lives in its own module ([`clothing_prompt_builder.py`](backend/services/clothing_prompt_builder.py)) because the task is fundamentally different: jewelry is an **addition** (change nothing except adding one object), while clothing is a **garment swap** (remove one garment, fit another to the body). Sharing prompt text would weaken both. The clothing builder keeps the same six-section skeleton but swaps the physics: per-type *fit* language (tops replace only the upper-body garment and keep the lower body untouched; trousers the reverse; dresses replace the outfit with gravity-correct skirt drape), preservation extends to **body shape and proportions**, and fidelity language centers on **pattern scale, direction and alignment** — which is why the breton stripes survive intact in the demo above.
 
 ---
+
+## Quality controls & evaluation
+
+Output realism is treated as something to *measure*, not assert:
+
+- **Aspect-ratio pinning.** The output aspect ratio is derived from the input photo and pinned via the API's `imageConfig.aspectRatio` (see `closest_aspect_ratio()` in [`nanobanana_service.py`](backend/services/nanobanana_service.py)) — left unpinned, the model re-frames shots.
+- **Input guards.** Photos under 256 px (shortest side) are rejected client- *and* server-side before any generation is spent; borderline (<512 px) photos get a softness warning; selecting an item shows type-specific guidance (earrings need visible ears, dresses render at true product length, etc.).
+- **Benchmark harness.** [`eval/benchmark.json`](eval/benchmark.json) pairs **every catalog item** with a fixed synthetic input. Run it with:
+  ```bash
+  python eval/run_eval.py --hard      # 6-case hard regression subset
+  python eval/run_eval.py --all       # full 15-case catalog sweep
+  python eval/run_eval.py --all --dry-run   # validate without API calls
+  ```
+  Each run writes images plus `report.md` / `report.json` into `eval/runs/<timestamp>/`, scoring aspect drift, background preservation, noise/sharpness parity ("AI gloss" detection), brightness drift, and lower-body visible-skin conservation (leg-erasure detection). **These heuristics flag outputs for human review — they do not certify photorealism**; each report includes a human rubric column to fill in.
+- **Failure gallery.** Flagged outputs are auto-copied to `eval/failures/`; [eval/FAILURES.md](eval/FAILURES.md) documents the human-confirmed failure modes with evidence and status. Image generations only — the harness never calls the video API.
 
 ## Video budget
 
@@ -171,8 +197,8 @@ If credits run out, the API returns the image with a friendly `video_error` ("in
 ## Honest status & limitations
 
 - **Verified live:** image try-on works end-to-end for **all four jewelry types** — necklace and earrings on a face photo, ring and bracelet on a hand photo — and for **clothing tops and dresses** on a full-body photo (all results above are unedited app outputs). Both LTX video runs worked first try on the same pipeline.
-- **Not live-tested:** the oxford shirt, black dress and jeans share the verified clothing path but were not individually generated, to conserve quota; their prompt branches are covered by tests.
-- **Output framing:** Nano Banana occasionally re-crops slightly (the ring result returned a mildly wider frame than the input). The prompt constrains framing, which keeps this rare, but it is not fully eliminable. Similarly, the wrap dress rendered slightly longer than the product's midi cut — design elements (neckline, sleeves, tie waist, color) were preserved faithfully.
+- **Not live-tested:** the oxford shirt, black dress and jeans share the verified clothing path but were not individually generated, to conserve quota; their prompt branches are covered by tests and all three are in the benchmark for the next full sweep.
+- **Realism is improved, not solved.** The demo images above predate prompt v2; their two confirmed defects — hem drift on the wrap dress and slight re-framing on the ring — are exactly what the v2 constraints, aspect pinning and the benchmark metrics now target (see [eval/FAILURES.md](eval/FAILURES.md) for the current ledger). Single-pass editing models retain a smoothing bias ("AI gloss"): the photographic-character prompt section and the noise-parity metric reduce and detect it, but cannot fully eliminate it.
 - **Free-tier image quota is low.** Nano Banana free-tier image generation has small daily/per-minute caps; the app surfaces HTTP 429 as a clear, friendly message (screenshot above). Some Google projects have *zero* free image-gen quota — if every request 429s instantly, the fix is a key from a project with image quota, not a code change.
 - **Demo inputs are synthetic.** All "users" in the demos were generated for this project so no real person's likeness ships in the repo.
 - **Clothing product images are project-generated.** Clean royalty-free *product-style* garment photos (ghost-mannequin, white background) are hard to source legitimately, so the five clothing catalog images were generated with Nano Banana for this project and are labeled as such in `clothing.json`. The jewelry catalog uses real museum/Commons photographs.
