@@ -14,8 +14,10 @@ load_dotenv(ROOT_DIR / ".env")
 
 BACKEND_DIR = Path(__file__).resolve().parent
 CATALOG_DIR = BACKEND_DIR / "catalog"
-UPLOADS_DIR = BACKEND_DIR / "uploads"
-OUTPUTS_DIR = BACKEND_DIR / "outputs"
+# Uploads/outputs are env-overridable so the test suite (and any tooling) can
+# redirect writes to temp directories instead of polluting the real ones.
+UPLOADS_DIR = Path(os.getenv("TRYON_UPLOADS_DIR", BACKEND_DIR / "uploads"))
+OUTPUTS_DIR = Path(os.getenv("TRYON_OUTPUTS_DIR", BACKEND_DIR / "outputs"))
 FRONTEND_DIR = ROOT_DIR / "frontend"
 
 

@@ -28,24 +28,63 @@ MAX_IMAGE_SIDE = 1536  # downscale request images to keep payloads small
 TRANSIENT_STATUS = {500, 502, 503, 504}
 RETRY_DELAY_S = 4
 
+# Aspect ratios the image models accept via generationConfig.imageConfig.
+# Pinning the ratio to the input photo eliminates the framing drift observed
+# in evaluation (the model re-cropping / widening shots when left to choose).
+SUPPORTED_ASPECT_RATIOS: dict[str, float] = {
+    "1:1": 1 / 1,
+    "4:5": 4 / 5,
+    "5:4": 5 / 4,
+    "3:4": 3 / 4,
+    "4:3": 4 / 3,
+    "2:3": 2 / 3,
+    "3:2": 3 / 2,
+    "9:16": 9 / 16,
+    "16:9": 16 / 9,
+    "21:9": 21 / 9,
+}
+
 
 class NanoBananaError(Exception):
     """A Nano Banana failure with a message safe to show to the end user."""
 
 
-def _image_part(path: Path) -> dict:
-    """Load an image, normalize orientation, downscale, and wrap as inlineData."""
+def closest_aspect_ratio(width: int, height: int) -> str:
+    """Pick the supported aspect ratio closest to the input image's.
+
+    Comparison is done in log space so that e.g. 2:1 is judged as far from
+    1:1 as 1:2 is, and extreme ratios clamp to the nearest supported one.
+    """
+    import math
+
+    if width <= 0 or height <= 0:
+        return "1:1"
+    target = math.log(width / height)
+    return min(
+        SUPPORTED_ASPECT_RATIOS,
+        key=lambda name: abs(math.log(SUPPORTED_ASPECT_RATIOS[name]) - target),
+    )
+
+
+def _image_part(path: Path) -> tuple[dict, tuple[int, int]]:
+    """Load an image, normalize orientation, downscale, wrap as inlineData.
+
+    Returns ``(part, (width, height))`` so callers can derive the aspect
+    ratio of the base photo.
+    """
     with Image.open(path) as im:
         im = ImageOps.exif_transpose(im).convert("RGB")
         im.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
+        size = im.size
         buf = io.BytesIO()
         im.save(buf, "JPEG", quality=92)
-    return {
+    part = {
         "inlineData": {
             "mimeType": "image/jpeg",
             "data": base64.b64encode(buf.getvalue()).decode("ascii"),
         }
     }
+    return part, size
 
 
 def _friendly_http_error(status: int, body: str) -> NanoBananaError:
@@ -112,6 +151,10 @@ def generate_tryon_image(
             "NANOBANANA_API_KEY is not set. Add it to your .env file."
         )
 
+    user_part, (user_w, user_h) = _image_part(user_photo)
+    product_part, _ = _image_part(product_photo)
+    aspect_ratio = closest_aspect_ratio(user_w, user_h)
+
     url = f"{API_BASE}/models/{settings.nanobanana_model}:generateContent"
     body = {
         "contents": [
@@ -119,17 +162,23 @@ def generate_tryon_image(
                 "role": "user",
                 "parts": [
                     {"text": prompt},
-                    _image_part(user_photo),
-                    _image_part(product_photo),
+                    user_part,
+                    product_part,
                 ],
             }
         ],
-        "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
+        "generationConfig": {
+            "responseModalities": ["TEXT", "IMAGE"],
+            # Pin the output to the base photo's aspect ratio - left
+            # unspecified, the model re-frames shots (observed in eval).
+            "imageConfig": {"aspectRatio": aspect_ratio},
+        },
     }
 
     logger.info(
-        "nanobanana request model=%s user_photo=%s product_photo=%s prompt_chars=%d",
-        settings.nanobanana_model, user_photo.name, product_photo.name, len(prompt),
+        "nanobanana request model=%s user_photo=%s product_photo=%s aspect=%s prompt_chars=%d",
+        settings.nanobanana_model, user_photo.name, product_photo.name,
+        aspect_ratio, len(prompt),
     )
 
     # The model occasionally returns an empty candidate (no image, no text),

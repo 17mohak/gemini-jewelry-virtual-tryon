@@ -99,6 +99,44 @@ def test_prompt_rejects_unknown_type():
         pb.build_tryon_prompt({"name": "Crown", "type": "crown", "description": "x"})
 
 
+# ── v2 quality rules (driven by the image-quality audit) ─────────────────────
+
+EARRINGS = {
+    "id": "e1",
+    "name": "Gold Drop Earrings",
+    "type": "earrings",
+    "description": "Pair of hammered gold drop earrings.",
+}
+
+
+def test_earrings_prompt_has_strict_occlusion_rules():
+    prompt = pb.build_tryon_prompt(EARRINGS).lower()
+    assert "do not move, thin out, repaint or tuck the hair" in prompt
+    assert "do not invent an ear" in prompt
+    assert "missing earring on a hidden ear is correct" in prompt
+
+
+@pytest.mark.parametrize("item", [NECKLACE, RING, EARRINGS])
+def test_prompt_has_photographic_character_rules(item):
+    prompt = pb.build_tryon_prompt(item).lower()
+    assert "photographic character" in prompt
+    assert "noise" in prompt        # sensor noise / grain preservation
+    assert "white balance" in prompt
+    assert "sharpness" in prompt
+    assert "do not denoise" in prompt
+
+
+@pytest.mark.parametrize("item", [NECKLACE, RING, EARRINGS])
+def test_prompt_has_scale_anchor(item):
+    assert "scale anchor" in pb.build_tryon_prompt(item).lower()
+
+
+def test_prompt_pins_framing_and_aspect():
+    prompt = pb.build_tryon_prompt(NECKLACE).lower()
+    assert "same framing, crop and aspect ratio" in prompt
+    assert "do not zoom in, zoom out" in prompt
+
+
 # ── Video prompt ─────────────────────────────────────────────────────────────
 
 def test_video_prompt_adapts_to_photo_kind():

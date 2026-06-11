@@ -53,10 +53,10 @@ def test_prompt_adapts_fit_section_to_type():
     dress = cpb.build_clothing_tryon_prompt(DRESS).lower()
     trousers = cpb.build_clothing_tryon_prompt(TROUSERS).lower()
     assert "upper-body garment" in top
-    assert "lower-body clothing exactly as it is" in top
+    assert "lower body (trousers, skirt, legs, shoes) stays exactly as in image 1" in top
     assert "skirt" in dress
     assert "lower-body garment" in trousers
-    assert "upper-body clothing exactly as it is" in trousers
+    assert "upper-body clothing stays exactly as in image 1" in trousers
 
 
 @pytest.mark.parametrize("item", [TOP, DRESS, TROUSERS])
@@ -81,3 +81,55 @@ def test_video_prompt_mentions_fabric_motion():
     video = cpb.build_video_prompt(DRESS).lower()
     assert "fabric" in video
     assert "photorealistic" in video
+
+
+# ── v2 quality rules (driven by the image-quality audit) ─────────────────────
+
+def test_no_coverage_loophole_remains():
+    """The phrase that let the model extend garments over legs is gone."""
+    for item in (TOP, DRESS, TROUSERS):
+        prompt = cpb.build_clothing_tryon_prompt(item).lower()
+        assert "unless the garment naturally covers" not in prompt
+
+
+def test_visible_skin_conservation_rule_present():
+    prompt = cpb.build_clothing_tryon_prompt(DRESS).lower()
+    assert "visible-skin rule" in prompt
+    assert "do not extend fabric over" in prompt
+
+
+def test_dress_prompt_has_hem_landmark_constraints():
+    prompt = cpb.build_clothing_tryon_prompt(DRESS).lower()
+    assert "hem ends at exactly the same point on the body" in prompt
+    assert "knee, mid-calf, ankle" in prompt
+    assert "do not render the dress longer or shorter" in prompt
+
+
+def test_coverage_field_is_injected_as_constraint():
+    dress_with_coverage = dict(
+        DRESS, coverage="Covers the torso; hem at the knee; lower legs stay visible."
+    )
+    prompt = cpb.build_clothing_tryon_prompt(dress_with_coverage)
+    assert "Coverage constraint for this exact garment" in prompt
+    assert "hem at the knee" in prompt
+    # without the field, no empty constraint block appears
+    assert "Coverage constraint" not in cpb.build_clothing_tryon_prompt(DRESS)
+
+
+def test_clothing_prompt_has_photographic_character_rules():
+    prompt = cpb.build_clothing_tryon_prompt(TOP).lower()
+    assert "photographic character" in prompt
+    assert "noise" in prompt
+    assert "white balance" in prompt
+    assert "must not look cleaner, smoother or more evenly lit" in prompt
+
+
+def test_all_catalog_clothing_items_carry_coverage():
+    """Every real catalog item must ship the structured coverage field."""
+    import json
+    from backend.config import CATALOG_DIR
+
+    items = json.loads((CATALOG_DIR / "clothing.json").read_text(encoding="utf-8"))["items"]
+    for item in items:
+        assert item.get("coverage"), f"{item['id']} is missing a coverage field"
+        assert "remain exactly as" in item["coverage"]

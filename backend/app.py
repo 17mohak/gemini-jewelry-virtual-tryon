@@ -182,6 +182,13 @@ def _validate_and_save_upload(upload: UploadFile, dest: Path) -> None:
     try:
         with Image.open(io.BytesIO(raw)) as im:
             im = ImageOps.exif_transpose(im).convert("RGB")
+            if min(im.size) < 256:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Photo is too small (shortest side must be at "
+                    "least 256 px) - small inputs produce soft, unrealistic "
+                    "results.",
+                )
             im.save(dest, "JPEG", quality=92)
     except UnidentifiedImageError:
         raise HTTPException(

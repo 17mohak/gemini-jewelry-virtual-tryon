@@ -313,6 +313,17 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   font-size: 0.9rem;
 }
 
+/* Pre-generation input guidance (photo-quality guards) */
+.guard {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  border: 1px solid #eddfbe;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.86rem;
+  margin: 0.5rem 0 0;
+}
+
 details { font-size: 0.85rem; }
 details summary {
   cursor: pointer;

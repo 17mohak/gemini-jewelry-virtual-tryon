@@ -5,7 +5,8 @@
       "name": "White Oxford Shirt",
       "type": "top",
       "image": "images/clothing_white_oxford.jpg",
-      "description": "Crisp white cotton oxford button-down shirt with long sleeves, a chest pocket, white buttons and a pointed collar.",
+      "description": "Crisp white cotton oxford button-down shirt with long sleeves, a chest pocket, white buttons and a pointed collar; matte basket-weave cotton with soft structure, no sheen.",
+      "coverage": "Covers the torso and the arms down to the wrists; the hem ends just below the hips. Hands, lower body and shoes remain exactly as in the user's photo.",
       "attribution": {
         "title": "Product image generated with Nano Banana for this project",
         "license": "Project-generated, royalty-free",
@@ -17,8 +18,9 @@
       "name": "Breton Striped Top",
       "type": "top",
       "image": "images/clothing_breton_top.jpg",
-      "description": "Navy-blue and white horizontally striped breton long-sleeve cotton top with a boat neckline; even stripe width throughout.",
+      "description": "Navy-blue and white horizontally striped breton long-sleeve top with a boat neckline; even stripe width throughout; mid-weight matte cotton jersey.",
       "prompt_hint": "The horizontal stripes must stay evenly spaced and follow the body's contours; do not change stripe width, direction or colors.",
+      "coverage": "Covers the torso and the arms down to the wrists; the hem ends at the high hip. Hands, lower body and shoes remain exactly as in the user's photo.",
       "attribution": {
         "title": "Product image generated with Nano Banana for this project",
         "license": "Project-generated, royalty-free",
@@ -30,7 +32,9 @@
       "name": "Emerald Wrap Midi Dress",
       "type": "dress",
       "image": "images/clothing_green_wrap_dress.jpg",
-      "description": "Emerald-green wrap midi dress with a V-neckline, short flutter sleeves, a tie waist with a side bow, and a flowing skirt that falls below the knee.",
+      "description": "Emerald-green wrap dress with a V-neckline, short flutter sleeves, a tie waist with a side bow, and a flowing skirt that ends at the lower calf, as shown in the product photo; lightweight matte chiffon with a soft, slightly translucent drape.",
+      "prompt_hint": "The hem ends at the lower calf exactly as in the product photo - do NOT render the dress longer (no ankle or floor length) or shorter.",
+      "coverage": "Covers the torso and arms to just above the elbows, and the legs down to the lower calf only. The lower calves, ankles, feet and footwear remain exactly as visible as in the user's photo.",
       "attribution": {
         "title": "Product image generated with Nano Banana for this project",
         "license": "Project-generated, royalty-free",
@@ -42,7 +46,9 @@
       "name": "Black A-Line Dress",
       "type": "dress",
       "image": "images/clothing_black_dress.jpg",
-      "description": "Classic black sleeveless A-line cocktail dress with a round neckline, fitted bodice and a knee-length flared skirt.",
+      "description": "Classic black sleeveless A-line cocktail dress with a round neckline, fitted bodice and a knee-length flared skirt; smooth matte crepe fabric with gentle structure.",
+      "prompt_hint": "The hem ends at the knee exactly as in the product photo - do NOT render the dress longer or shorter.",
+      "coverage": "Covers the torso (shoulders bare beyond the straps) and the legs down to the knee only. Arms, lower legs, ankles, feet and footwear remain exactly as visible as in the user's photo.",
       "attribution": {
         "title": "Product image generated with Nano Banana for this project",
         "license": "Project-generated, royalty-free",
@@ -54,8 +60,9 @@
       "name": "Light-Blue Straight Jeans",
       "type": "trousers",
       "image": "images/clothing_blue_jeans.jpg",
-      "description": "Light-blue straight-leg denim jeans with a five-pocket design, visible contrast stitching and a faded wash on the thighs.",
+      "description": "Light-blue straight-leg denim jeans with a five-pocket design, visible contrast stitching and a faded wash on the thighs; rigid matte denim with visible twill texture.",
       "prompt_hint": "Replace only the lower-body garment; keep the person's existing top exactly as it is.",
+      "coverage": "Covers from the waist down to the ankles. The upper body, hands, feet and footwear remain exactly as in the user's photo.",
       "attribution": {
         "title": "Product image generated with Nano Banana for this project",
         "license": "Project-generated, royalty-free",
