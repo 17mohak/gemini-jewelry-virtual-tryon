@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT))
 from backend.config import CATALOG_DIR  # noqa: E402
 from backend.services import (  # noqa: E402
     clothing_prompt_builder,
+    compositing,
     nanobanana_service,
     prompt_builder,
 )
@@ -140,6 +141,14 @@ def run(args: argparse.Namespace) -> int:
             print(f"    FAILED: {exc}")
             continue
 
+        # Mirror the shipped pipeline: composite by default. --raw skips it so
+        # the harness can A/B the raw model output against the composited one.
+        if not args.raw:
+            result = compositing.composite_bytes(input_path, image)
+            image, mime = compositing.composite_to_bytes(result, mime)
+            record["composited"] = result.applied
+            record["edit_fraction"] = round(result.edit_fraction, 4)
+
         ext = "png" if "png" in mime else "jpg"
         out_path = run_dir / f"{case['id']}.{ext}"
         out_path.write_bytes(image)
@@ -223,6 +232,7 @@ def main() -> None:
     group.add_argument("--all", action="store_true", help="run every benchmark case")
     group.add_argument("--cases", help="comma-separated case ids")
     parser.add_argument("--dry-run", action="store_true", help="validate without API calls")
+    parser.add_argument("--raw", action="store_true", help="skip pixel-preserving compositing (score the raw model output)")
     parser.add_argument("--delay", type=float, default=8.0, help="seconds between generations (rate-limit kindness)")
     raise SystemExit(run(parser.parse_args()))
 
