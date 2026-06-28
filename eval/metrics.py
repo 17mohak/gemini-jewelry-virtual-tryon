@@ -141,6 +141,34 @@ def brightness_drift(input_path: Path, output_path: Path) -> float:
     return lb - la
 
 
+def mean_abs_diff(input_path: Path, output_path: Path) -> float:
+    """Global mean absolute pixel difference (0-255) over the whole frame.
+
+    A blunt overall-change measure. For a pixel-preserving composite this drops
+    sharply versus the raw model output, because everything outside the edit
+    region is restored to the original.
+    """
+    a = _load(input_path)
+    b = _load(output_path).resize(a.size)
+    return ImageStat.Stat(ImageChops.difference(a, b)).mean[0]
+
+
+def change_fraction(
+    input_path: Path, output_path: Path, threshold: int = 25
+) -> float:
+    """Fraction of pixels whose luma changed by more than ``threshold``.
+
+    Approximates the size of the genuinely edited region. Lower is better for a
+    pixel-preserving pipeline: it means fewer original pixels were disturbed.
+    """
+    a = _load(input_path).convert("L")
+    b = _load(output_path).resize(a.size).convert("L")
+    diff = ImageChops.difference(a, b)
+    hist = diff.histogram()
+    changed = sum(hist[threshold + 1:])
+    return changed / max(1, sum(hist))
+
+
 # ── Thresholds & scoring ─────────────────────────────────────────────────────
 
 THRESHOLDS = {

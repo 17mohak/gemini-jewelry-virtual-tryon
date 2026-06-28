@@ -106,3 +106,18 @@ def test_lower_skin_ratio_detects_leg_erasure(tmp_path):
     assert ratio < 0.5
     values, flags = metrics.evaluate_case(a, b, is_clothing=True)
     assert any("lower_skin_ratio" in f for f in flags)
+
+
+def test_change_fraction_and_mean_abs_diff_measure_locality(tmp_path):
+    base = Image.effect_noise((400, 300), 24).convert("RGB")
+    edited = base.copy()
+    edited.paste((220, 40, 40), (180, 120, 230, 180))  # a small local edit
+    a = _save(tmp_path, "a.jpg", base)
+    b = _save(tmp_path, "b.jpg", edited)
+    # Identical images: ~no change, tiny mean diff.
+    assert metrics.change_fraction(a, a) < 0.01
+    assert metrics.mean_abs_diff(a, a) < 2.0
+    # A small painted block: a small but non-zero changed fraction.
+    cf = metrics.change_fraction(a, b)
+    assert 0.005 < cf < 0.20
+    assert metrics.mean_abs_diff(a, b) > metrics.mean_abs_diff(a, a)
