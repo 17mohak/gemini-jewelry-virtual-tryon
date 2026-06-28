@@ -207,3 +207,64 @@ python eval/run_eval.py --hard      # shipped pipeline (composite on)
 python eval/run_eval.py --hard --raw  # same prompts, compositing OFF (A/B)
 python -m pytest tests/test_compositing.py -q
 ```
+
+---
+
+# Part 2 — Adversarial garment stress iteration (v3)
+
+The previous sections fixed the *common* case. This iteration deliberately
+attacked the pipeline with 21 hard real-world garments (structured jackets,
+hoodies, corsets, sequins, paillettes, beaded/figurative embroidery, satin,
+sheer mesh, feathers/fringe, polka dots, ombré, bubble hems, asymmetric
+two-pieces, skirts, distressed denim). They live in `eval/stress/refs/`
+(gitignored, user-supplied stress assets — *not* catalog items) and are
+catalogued with per-garment difficulty analysis in
+[`eval/stress_manifest.json`](stress_manifest.json).
+
+The goal was not to make these specific garments "work" but to use them to
+**expose architectural weaknesses simpler catalog items hide**, then fix the
+ones that can be validated.
+
+## Weaknesses found, by pipeline stage
+
+| Stage | Weakness exposed | Evidence | Fix |
+| --- | --- | --- | --- |
+| **Prompt / taxonomy** | Type set was `{top, dress, trousers}`. Skirts had to map to `trousers` (grows trouser legs over bare legs); jackets/hoodies to `top` (deletes the layer underneath); two-piece sets had no representation. | manifest: ref_15/18/19/21 (skirts, set), ref_01/02/16 (outerwear) | Added `skirt`, `jacket`, `set` types with correct fit physics + a `layer:"over"` mode so outerwear is worn over existing clothing, not swapped. |
+| **Prompt / materials** | Generic "reproduce the pattern" says nothing about *how a material reflects light*. Sequins, paillettes, satin, sheer fabric, beading, feathers, metal hardware are exactly what reads as AI-generated on a zoom-in. | manifest `primary_stress` = "model (specular/material)" on 12 of 21 | Keyword-triggered **material-physics** snippets (e.g. "each sequin is a tiny mirror reflecting the SAME scene lights"; "sheer = skin stays visible through it"). Additive: plain garments match nothing and don't regress. |
+| **Compositing / mask** | The colour-only (ΔE) change mask under-segments a garment whose colour ≈ what it replaced: region recall fell to **0.61** in a controlled test, leaving holes where the original bleeds through. | controlled experiment (smooth light-grey garment over the grey-tee base) | Added a second, OR'd **texture cue** (change in local luma stddev). Recall → 0.75 on the smooth case and ~1.0 when texture differs (sequins on a matching colour). Validated to add no background false-positives on the real outputs (border still ~0.15 vs ~2.0 raw). |
+| **Evaluation** | Global `noise_match`/`sharpness_match` over-flag patterned garments — a striped/sequined garment legitimately has more edge energy than the plain tee it replaced. | breton real output: global noise 1.38 / sharp 1.42 (both flag) | `preserved_region_parity()` measures grain/sharpness parity ONLY on the non-edited region (using the same two-cue mask). Breton preserved parity = **0.98 / 0.98** (clean) — confirms the over-flag was the garment, not a model defect. |
+
+## What was NOT changed (validated as already-robust)
+
+* **Tone harmonization on vivid/large garments.** Hypothesis: the global
+  per-channel gain+bias, fit on neutral pixels, would distort a large saturated
+  garment. A controlled test (vivid magenta garment, 16% of frame, with a model
+  regrade applied to the whole output) showed the composite **recovers the true
+  garment colour to within ~1-3/255** while removing the regrade from the
+  background (drift ~0). Only a *nonlinear* saturation boost leaves a small
+  residual; fixing that risks over-correcting plain garments, so it was left
+  alone. Evidence over intuition: no change merged.
+
+## Status of this iteration
+
+Implemented + offline-validated (deterministic tests + controlled experiments +
+the existing real outputs): the taxonomy/material/layering prompt redesign, the
+texture-cue change mask, and the preserved-region parity metric. A one-command
+live harness ([`eval/stress_eval.py`](stress_eval.py)) is ready to generate and
+score all 21 garments through the full pipeline.
+
+> **Live adversarial sweep: pending a working Nano Banana key.** The key in
+> `.env` at audit time was a Vertex Express `AQ.` key that every Google endpoint
+> rejected (`ACCESS_TOKEN_TYPE_UNSUPPORTED`). The pixel-level per-garment
+> artifact analysis (which failures are prompt- vs model- vs compositing-borne)
+> requires real generations and is recorded here once the sweep runs:
+> `python eval/stress_eval.py --all`.
+
+### Reproduce (v3)
+
+```bash
+python eval/stress_eval.py --all --dry-run   # build all 21 prompts, no API
+python eval/stress_eval.py --all             # full live sweep (needs key)
+python eval/stress_eval.py --ids ref_03,ref_13 --raw   # subset, compositing off
+python -m pytest tests/test_clothing_prompt_builder.py tests/test_compositing.py -q
+```

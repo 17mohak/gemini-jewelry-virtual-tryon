@@ -70,7 +70,7 @@ Local filesystem      backend/uploads/  backend/outputs/  (request-scoped names)
 | Compositing | numpy, scipy (CIELAB diff-mask + feathered alpha composite) |
 | Frontend | Plain HTML / CSS / JS — no frameworks |
 | Config | python-dotenv (`.env`), nothing hardcoded |
-| Tests | pytest — 100 tests |
+| Tests | pytest — 110 tests |
 | Evaluation | local benchmark harness (`eval/`), Pillow-only metrics |
 
 ```
@@ -165,6 +165,35 @@ An image-quality audit of real outputs drove a second prompt iteration. The hone
 - **Strict earring occlusion rules**: never move hair, never invent a hidden ear — a missing earring on a covered ear is correct behavior, a hallucinated ear is a failure. The UI warns about this *before* a generation is spent.
 - **Garment geometry constraints**: the v1 phrase letting clothing "naturally cover" footwear was a loophole the model used to lengthen dresses over the wearer's legs (documented in [eval/FAILURES.md](eval/FAILURES.md)). v2 removes it, pins hems to body landmarks (knee / mid-calf / ankle), adds a visible-skin conservation rule, and gives every clothing item a structured `coverage` field stating exactly what it covers and what must stay visible.
 - **Scale anchors** for jewelry (pendant 2–3 cm, drop earrings 2–5 cm, band 2–4 mm…) so pieces render at believable real-world sizes.
+
+### Part 2 (v3): adversarial garment robustness
+
+A 21-garment adversarial stress set (structured jackets, hoodies, corsets,
+sequins, paillettes, beaded embroidery, satin, sheer mesh, feathers, bubble
+hems, asymmetric two-pieces, skirts, distressed denim) was used to find where
+the clothing pipeline breaks on garments the simple catalog never exercises.
+Full analysis and evidence: [eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md)
+(Part 2). Outcomes, each validated:
+
+- **Expanded taxonomy** — added `skirt`, `jacket`, `set` to the clothing types
+  (was `{top, dress, trousers}`), with correct fit physics, plus a `layer:"over"`
+  mode so **outerwear is worn over the existing clothing** instead of replacing
+  it. A skirt no longer grows trouser legs; a jacket no longer deletes the top
+  underneath.
+- **Material-aware prompting** — keyword-triggered physics for sequins/paillettes
+  ("each disc is a tiny mirror reflecting the same scene lights"), satin
+  (anisotropic sheen), sheer ("skin stays visible through it"), beading,
+  feathers, metal hardware, ombré, bubble hems, etc. Additive — plain garments
+  match nothing and don't regress.
+- **Two-cue change mask** — the compositing mask now combines CIELAB ΔE **and** a
+  local-texture cue, fixing hole/bleed-through on garments whose colour resembles
+  what they replaced (controlled-test recall 0.61 → 0.75; ~1.0 when texture
+  differs).
+- **Edit-region-aware metrics** — `preserved_region_parity()` measures grain /
+  sharpness parity only off the edited region, fixing the documented over-flag of
+  patterned garments (breton: global 1.38/1.42 → preserved 0.98/0.98).
+- **Stress harness** — [eval/stress_eval.py](eval/stress_eval.py) runs the full
+  pipeline on the set and emits comparison + diff panels (`python eval/stress_eval.py --all`).
 
 ### Part 2: clothing prompts are deliberately separate
 

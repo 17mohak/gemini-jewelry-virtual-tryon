@@ -88,6 +88,20 @@ def test_edit_fraction_is_small_and_localized(base_array):
     assert 0.005 < info["edit_fraction"] < 0.20
 
 
+def test_texture_cue_catches_low_contrast_edit(base_array):
+    """A garment whose COLOUR matches what it replaced but whose TEXTURE differs
+    must still be detected (colour ΔE alone would leave holes)."""
+    base = base_array.copy()
+    # Region that matches the base's mean colour (~120) but is SMOOTH (no grain),
+    # i.e. a flat garment over the textured photo: near-zero colour ΔE.
+    model = base.copy()
+    model[70:130, 70:130] = 120.0  # flat patch, same colour, different texture
+    # Colour-only detection would miss this; the combined mask should catch it.
+    _alpha, hard = C.build_change_mask(base, model, C.DEFAULT_CONFIG)
+    region = hard[80:120, 80:120]
+    assert region.mean() > 0.5  # majority of the flat patch is detected
+
+
 def test_global_brightness_drift_is_neutralized(base_array):
     model = _model_with_edit(base_array, brightness_drift=20.0)
     out, _info = C.composite_arrays(base_array, model)
