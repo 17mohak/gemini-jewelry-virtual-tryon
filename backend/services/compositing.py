@@ -77,6 +77,7 @@ logger = logging.getLogger("services.compositing")
 class CompositeConfig:
     work_size: int = 1024          # cap on the long edge during processing
     delta_e_threshold: float = 9.0  # CIELAB distance that counts as "changed"
+    texture_threshold: float = 3.0  # local-texture-stddev change that counts as "changed"
     blur_sigma: float = 1.5        # pre-threshold smoothing of the diff map
     min_region_frac: float = 0.0008  # drop connected changes smaller than this
     dilate_px: int = 6             # grow mask to include contact shadows
@@ -127,6 +128,13 @@ def _to_array(im: Image.Image) -> np.ndarray:
     return np.asarray(im, dtype=np.float32)
 
 
+def _local_std(luma: np.ndarray, sigma: float = 2.0) -> np.ndarray:
+    """Local standard deviation of luma (a texture/detail map)."""
+    mean = ndimage.gaussian_filter(luma, sigma)
+    mean_sq = ndimage.gaussian_filter(luma * luma, sigma)
+    return np.sqrt(np.maximum(mean_sq - mean * mean, 0.0))
+
+
 # ── Step 2: global tone harmonization ────────────────────────────────────────
 
 def harmonize_tone(
@@ -167,11 +175,30 @@ def build_change_mask(
     ``alpha`` is the feathered float blend weight for the model output in
     ``[0,1]``; ``hard_mask`` is the boolean pre-feather edit region (used for
     grain matching and diagnostics).
+
+    Change detection uses TWO complementary cues, OR'd together:
+
+    * **colour** - CIELAB ΔE between base and (harmonized) model;
+    * **texture** - the change in local luma standard deviation.
+
+    The colour cue alone under-segments a garment whose colour resembles what
+    it replaced (e.g. a smooth light garment over a light top): ΔE falls below
+    threshold and the mask develops holes, so the original bleeds through.
+    Validation (eval/compositing_eval.py controlled test) showed region recall
+    dropping to ~0.6 in that case. The texture cue catches it: a smooth garment
+    over a textured fabric (or vice-versa) differs sharply in local texture
+    even when the mean colour matches, with a ~10x garment/background
+    separation - while staying clear of the (flat) background.
     """
     delta = np.linalg.norm(rgb_to_lab(base) - rgb_to_lab(model), axis=-1)
     delta = ndimage.gaussian_filter(delta, sigma=cfg.blur_sigma)
 
-    hard = delta > cfg.delta_e_threshold
+    base_luma = base @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+    model_luma = model @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+    texture = np.abs(_local_std(base_luma) - _local_std(model_luma))
+    texture = ndimage.gaussian_filter(texture, sigma=cfg.blur_sigma)
+
+    hard = (delta > cfg.delta_e_threshold) | (texture > cfg.texture_threshold)
 
     # Drop small specks (JPEG ringing, faint global residue).
     if hard.any():
