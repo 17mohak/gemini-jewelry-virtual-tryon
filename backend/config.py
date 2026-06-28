@@ -51,5 +51,15 @@ class Settings:
 
     max_upload_bytes: int = 8 * 1024 * 1024  # 8 MB
 
+    # ── Pixel-preserving compositing (post-process) ───────────────────────
+    # After Nano Banana returns a (globally re-synthesized) image, restore the
+    # original photo's pixels everywhere except the edited region. This removes
+    # the model's exposure/grain/background/identity drift. On by default; set
+    # TRYON_COMPOSITE=0 to return the raw model output (useful for A/B review).
+    composite_enabled: bool = field(
+        default_factory=lambda: os.getenv("TRYON_COMPOSITE", "1")
+        not in ("0", "false", "False", "")
+    )
+
 
 settings = Settings()
