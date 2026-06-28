@@ -36,6 +36,7 @@ from backend.config import (
 )
 from backend.services import (
     clothing_prompt_builder,
+    compositing,
     ltx_service,
     nanobanana_service,
     prompt_builder,
@@ -253,6 +254,22 @@ def tryon(
     except NanoBananaError as exc:
         logger.error("tryon image_failed request_id=%s error=%s", request_id, exc)
         raise HTTPException(status_code=502, detail=str(exc))
+
+    # Pixel-preserving compositing: keep the model's edit only where the image
+    # actually changed and restore the original photo everywhere else. This is
+    # what makes the result a real photograph of THIS person, not a re-synthesis
+    # (see backend/services/compositing.py and eval/REALISM_AUDIT.md).
+    if settings.composite_enabled:
+        try:
+            result = compositing.composite_bytes(user_photo_path, image_bytes)
+            image_bytes, mime = compositing.composite_to_bytes(result, mime)
+            logger.info(
+                "tryon composited request_id=%s applied=%s edit_frac=%.3f%s",
+                request_id, result.applied, result.edit_fraction,
+                f" reason={result.reason}" if not result.applied else "",
+            )
+        except Exception as exc:  # never let post-processing void a good result
+            logger.warning("tryon composite_skipped request_id=%s error=%s", request_id, exc)
 
     ext = "png" if "png" in mime else "jpg"
     image_path = OUTPUTS_DIR / f"{request_id}_tryon.{ext}"
