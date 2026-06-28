@@ -31,4 +31,7 @@ backend/server.*.log
 # Evaluation run outputs (regenerable, may contain large images)
 eval/runs/
 eval/compositing/
-eval/stress/
+# Stress assets: keep the reference garments + analysis montages tracked,
+# ignore only the regenerable per-run outputs and scratch.
+eval/stress/runs/
+eval/stress/out/
