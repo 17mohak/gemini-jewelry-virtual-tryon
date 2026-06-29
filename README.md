@@ -28,9 +28,6 @@ then shows both in a minimal frontend, with the exact generation prompt inspecta
 | --- | --- |
 | ![Synthetic full-body input](docs/demo/input_body.jpg) | ![Breton Striped Top try-on](docs/demo/result_breton_top.jpg) *Breton Striped Top* — the stripes stay evenly spaced and follow the body's contours; leggings, shoes, face and background untouched |
 | *(same body photo)* | ![Emerald Wrap Midi Dress try-on, prompt v2](docs/demo/result_wrap_dress_v2.jpg) *Emerald Wrap Midi Dress (prompt v2)* — faithful wrap bodice and tie waist, hem at its true lower-calf length with ankles and shoes preserved; the v1 output ([before](docs/demo/result_wrap_dress.jpg)) drifted longer |
-| *(same body photo)* | ![White Oxford Shirt try-on](docs/demo/result_white_oxford.jpg) *White Oxford Shirt* — collar, buttons and chest pocket faithful; hem just below the hips; lower body untouched (from the full catalog sweep) |
-| *(same body photo)* | ![Black A-Line Dress try-on](docs/demo/result_black_dress.jpg) *Black A-Line Dress* — knee-length hem held exactly, footwear preserved (the model invented sheer tights under the hem — documented as FM-E) |
-| *(same body photo)* | ![Light-Blue Straight Jeans try-on](docs/demo/result_jeans.jpg) *Light-Blue Straight Jeans* — lower-body-only swap; five-pocket design and wash preserved, top untouched |
 
 🎬 **Video:** [docs/demo/result_dress_video.mp4](docs/demo/result_dress_video.mp4) — a 6-second LTX 2.3 clip of the dress try-on with natural fabric motion.
 
@@ -58,6 +55,7 @@ Browser (plain HTML/CSS/JS)
    ▼
 FastAPI backend  ──►  prompt_builder.py     type-aware prompt construction
    │                  nanobanana_service.py photorealistic try-on image
+   │                  compositing.py        pixel-preserving post-process
    │                  ltx_service.py        optional 6 s image-to-video
    ▼
 Local filesystem      backend/uploads/  backend/outputs/  (request-scoped names)
@@ -66,12 +64,13 @@ Local filesystem      backend/uploads/  backend/outputs/  (request-scoped names)
 | Layer | Choice |
 | --- | --- |
 | Backend | Python, FastAPI, Uvicorn, Pydantic |
-| Image try-on | Nano Banana (`gemini-3.1-flash-image` default, REST) |
+| Image try-on | Nano Banana (`gemini-2.5-flash-image`), REST |
 | Video | LTX 2.3 (`ltx-2-3-fast`), synchronous image-to-video API |
 | Image handling | Pillow, httpx |
+| Compositing | numpy, scipy (CIELAB diff-mask + feathered alpha composite) |
 | Frontend | Plain HTML / CSS / JS — no frameworks |
 | Config | python-dotenv (`.env`), nothing hardcoded |
-| Tests | pytest — 90 tests |
+| Tests | pytest — 112 tests |
 | Evaluation | local benchmark harness (`eval/`), Pillow-only metrics |
 
 ```
@@ -82,6 +81,7 @@ backend/
     prompt_builder.py     # ⭐ type-aware jewelry prompt construction (the core)
     clothing_prompt_builder.py  # Part 2: separate garment-swap prompt logic
     nanobanana_service.py # image editing call, one transient retry, clean errors
+    compositing.py        # ⭐ pixel-preserving post-process (restore original outside the edit)
     ltx_service.py        # video call, aspect-aware resolution, NO retries (billed per second)
   catalog/catalog.json    # 10 jewelry items + per-item prompt hints + attribution
   catalog/clothing.json   # Part 2: 5 clothing items (tops, dresses, trousers)
@@ -123,7 +123,7 @@ python -m pytest tests/ -v
 
 | Variable | Purpose | Where to get it |
 | --- | --- | --- |
-| `NANOBANANA_API_KEY` | image try-on | [Google AI Studio](https://aistudio.google.com/apikey) — free; create an API key. The default model id is `gemini-3.1-flash-image` (the older `gemini-2.5-flash-image` works via `NANOBANANA_MODEL` but refuses some clothing edits); both `AIza...` and Vertex-Express `AQ. ...` keys work. |
+| `NANOBANANA_API_KEY` | image try-on | [Google AI Studio](https://aistudio.google.com/apikey) — free; create an API key. Nano Banana's model id is `gemini-2.5-flash-image`; both `AIza...` and Vertex-Express `AQ. ...` keys work. |
 | `LTX_API_KEY` | video | [LTX API console](https://ltx.io/model/api) — keys look like `ltxv_...`; billed per second of generated video. |
 
 Optional overrides (`NANOBANANA_MODEL`, `LTX_MODEL`, `LTX_API_BASE`, `LTX_VIDEO_DURATION`, `APP_ENV`) are documented in [.env.example](.env.example). Secrets live only in `.env`, which is gitignored.
@@ -166,11 +166,102 @@ An image-quality audit of real outputs drove a second prompt iteration. The hone
 - **Garment geometry constraints**: the v1 phrase letting clothing "naturally cover" footwear was a loophole the model used to lengthen dresses over the wearer's legs (documented in [eval/FAILURES.md](eval/FAILURES.md)). v2 removes it, pins hems to body landmarks (knee / mid-calf / ankle), adds a visible-skin conservation rule, and gives every clothing item a structured `coverage` field stating exactly what it covers and what must stay visible.
 - **Scale anchors** for jewelry (pendant 2–3 cm, drop earrings 2–5 cm, band 2–4 mm…) so pieces render at believable real-world sizes.
 
+### Part 2 (v3): adversarial garment robustness
+
+A 21-garment adversarial stress set (structured jackets, hoodies, corsets,
+sequins, paillettes, beaded embroidery, satin, sheer mesh, feathers, bubble
+hems, asymmetric two-pieces, skirts, distressed denim) was used to find where
+the clothing pipeline breaks on garments the simple catalog never exercises.
+Full analysis and evidence: [eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md)
+(Part 2). Outcomes, each validated:
+
+- **Expanded taxonomy** — added `skirt`, `jacket`, `set` to the clothing types
+  (was `{top, dress, trousers}`), with correct fit physics, plus a `layer:"over"`
+  mode so **outerwear is worn over the existing clothing** instead of replacing
+  it. A skirt no longer grows trouser legs; a jacket no longer deletes the top
+  underneath.
+- **Material-aware prompting** — keyword-triggered physics for sequins/paillettes
+  ("each disc is a tiny mirror reflecting the same scene lights"), satin
+  (anisotropic sheen), sheer ("skin stays visible through it"), beading,
+  feathers, metal hardware, ombré, bubble hems, etc. Additive — plain garments
+  match nothing and don't regress.
+- **Two-cue change mask** — the compositing mask now combines CIELAB ΔE **and** a
+  local-texture cue, fixing hole/bleed-through on garments whose colour resembles
+  what they replaced (controlled-test recall 0.61 → 0.75; ~1.0 when texture
+  differs).
+- **Edit-region-aware metrics** — `preserved_region_parity()` measures grain /
+  sharpness parity only off the edited region, fixing the documented over-flag of
+  patterned garments (breton: global 1.38/1.42 → preserved 0.98/0.98).
+- **Stress harness** — [eval/stress_eval.py](eval/stress_eval.py) runs the full
+  pipeline on the set and emits comparison + diff panels (`python eval/stress_eval.py --all`).
+
+**Live sweep result** (`gemini-3.1-flash-image`, 20/21 generated; 1 model
+refusal): the redesign holds up under zoom on real generations — skirts keep
+legs bare, jackets layer over the tee, paillettes render as individual discs,
+satin/3D-appliqué/bubble-hems render, and every preserved pixel is the original
+photo (off-edit parity ~1.00 on all 20). Evidence panels:
+[docs/realism/stress/](docs/realism/stress). The remaining defects are
+**model-bound** — a content-policy refusal on a revealing cut-out (ref_15), and
+sheer-fabric transparency that an A/B proved prompt-insensitive — not pipeline
+issues. Full analysis: [eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md) (Part 2).
+
 ### Part 2: clothing prompts are deliberately separate
 
 Clothing lives in its own module ([`clothing_prompt_builder.py`](backend/services/clothing_prompt_builder.py)) because the task is fundamentally different: jewelry is an **addition** (change nothing except adding one object), while clothing is a **garment swap** (remove one garment, fit another to the body). Sharing prompt text would weaken both. The clothing builder keeps the same six-section skeleton but swaps the physics: per-type *fit* language (tops replace only the upper-body garment and keep the lower body untouched; trousers the reverse; dresses replace the outfit with gravity-correct skirt drape), preservation extends to **body shape and proportions**, and fidelity language centers on **pattern scale, direction and alignment** — which is why the breton stripes survive intact in the demo above.
 
 ---
+
+## Realism: pixel-preserving compositing (the part that matters most, v3)
+
+After prompt-v2 fixed *placement*, an image-quality audit found the remaining
+defects were *photographic*, and traced them to one cause: **Nano Banana
+re-synthesizes the whole image.** Even with a perfect prompt it re-draws the
+face, re-encodes the background, smooths the grain and drifts the exposure — so
+the result is a *render of* the person, not a *photo of* them. No prompt can fix
+this, because the model has no way to return the user's original pixels.
+
+The fix is a computational-photography post-process in
+[`backend/services/compositing.py`](backend/services/compositing.py): keep the
+model's output **only where the image actually changed** (the jewelry/garment
+and its contact shadow) and **restore the original photograph everywhere else.**
+
+Why it works — and why it's cheap — was measured first: with aspect-ratio
+pinning, the model output is already pixel-registered to the input (median
+per-pixel difference ≈ 2, the JPEG floor) and the true edit is tiny (0.2 %–12 %
+of pixels). So a plain resize aligns them and a difference mask isolates the
+edit. The stages (numpy + scipy + Pillow only):
+
+1. **Global tone harmonization** — fit a per-channel gain+bias on the unchanged
+   pixels so the model's exposure/white-balance drift is removed.
+2. **CIELAB change-mask** — perceptual ΔE → threshold → de-speckle → fill →
+   dilate (the dilation keeps the model's **contact shadow**, so the piece stays
+   grounded).
+3. **Feather + grain-match + alpha-composite** — `original·(1−α) + model·α`,
+   with sensor noise re-injected into the denoised edit region.
+
+**Identity is preserved by construction:** the face is outside the mask, so its
+pixels are the literal original — drift is impossible there. Safety valves fall
+back to the raw output if the mask is empty, covers >75 % of the frame, or the
+aspect ratios disagree, so the post-process can never do worse than the
+baseline. On by default (`TRYON_COMPOSITE=1`).
+
+**Objective before/after** ([eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md),
+reproducible offline with `python eval/compositing_eval.py` — no API spend):
+background drift collapses from ~2.0 to ~0.15 and exposure drift toward zero
+across all cases. The diff panels are the proof — for the raw output the *whole
+person* lights up as changed; for the composite, *only the jewelry/garment*
+does:
+
+| Before → after (input · raw model · composite · diff-raw · diff-composite) |
+| --- |
+| ![necklace before/after](docs/realism/necklace-cross-pendant_before_after.jpg) |
+| ![wrap dress before/after](docs/realism/clothing-green-wrap-dress_before_after.jpg) — face and background restored across a full garment swap |
+
+The audit also records a technique that was **tried and dropped**: an
+elliptical "face-lock" ROI clipped earrings/necklaces that sit near a small
+face while adding nothing the ΔE mask didn't already do — so it was removed.
+Poisson blending, hair matting and relighting are deferred (with reasons) as
+out-of-architecture; see the audit's ranking table.
 
 ## Quality controls & evaluation
 
@@ -184,9 +275,9 @@ Output realism is treated as something to *measure*, not assert:
   python eval/run_eval.py --all       # full 15-case catalog sweep
   python eval/run_eval.py --all --dry-run   # validate without API calls
   ```
-  Each run writes images plus `report.md` / `report.json` into `eval/runs/<timestamp>/`, scoring aspect drift, background preservation, noise/sharpness parity ("AI gloss" detection), brightness drift, and lower-body visible-skin conservation (leg-erasure detection). **These heuristics flag outputs for human review — they do not certify photorealism**; each report includes a human rubric column to fill in. The reviewed reports of the completed full-catalog sweep (run `20260611-070715`) are committed under [`eval/reports/`](eval/reports/), and the headline results are in [eval/BENCHMARK_RESULTS.md](eval/BENCHMARK_RESULTS.md).
+  Each run writes images plus `report.md` / `report.json` into `eval/runs/<timestamp>/`, scoring aspect drift, background preservation, noise/sharpness parity ("AI gloss" detection), brightness drift, and lower-body visible-skin conservation (leg-erasure detection). The harness now **mirrors the shipped pipeline** (compositing on); pass `--raw` to score the bare model output for an A/B. **These heuristics flag outputs for human review — they do not certify photorealism**; each report includes a human rubric column to fill in.
+- **Compositing A/B harness.** [`eval/compositing_eval.py`](eval/compositing_eval.py) runs the pixel-preserving post-process on already-committed outputs (**no API spend**), emits before/after/diff panels, and tabulates the metric deltas that prove the realism gain. This is how the compositing stage was validated and how regressions to it would be caught.
 - **Failure gallery.** Flagged outputs are auto-copied to `eval/failures/`; [eval/FAILURES.md](eval/FAILURES.md) documents the human-confirmed failure modes with evidence and status. Image generations only — the harness never calls the video API.
-- **Realism audit.** A zoom-level audit of the full sweep ([eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md), with evidence crops in `eval/audit/`) classifies every remaining synthetic-feel cause (missing contact shadows, no environmental color in metals, hair depth-ordering, fabric microstructure, whole-image re-synthesis) by root cause — prompt, asset, input, evaluation, model, or architecture — and ranks the mitigation roadmap. Its key conclusion: prompts are no longer the bottleneck; the next gains are a pixel-preserving compositor, edit-region grain/color harmonization, and a Pro-tier model A/B.
 
 ## Video budget
 
@@ -200,9 +291,9 @@ If credits run out, the API returns the image with a friendly `video_error` ("in
 
 ## Honest status & limitations
 
-- **Verified live, catalog-wide:** the full 15-case benchmark sweep (run `20260611-070715`) generated and human-reviewed **every catalog item** — all 10 jewelry pieces and all 5 garments — with 0 API failures, aspect drift 0.0 on every case, and no hard failures (no identity loss, hem drift, leg erasure, invented ears or background drift). Reviewed reports: [eval/reports/](eval/reports/), summary: [eval/BENCHMARK_RESULTS.md](eval/BENCHMARK_RESULTS.md). Both LTX video runs worked first try on the same pipeline (video untouched since — image quality was the focus).
-- **One catalog fix came out of the sweep:** the gold-hoop earrings' description said "thick" while the product photo shows a slender hoop; the model followed the photo and the mismatch cost fidelity. The description was corrected and only that case re-generated (clean re-run, `20260611-071658`).
-- **Realism is improved, not solved.** The two confirmed v1 defects — hem drift on the wrap dress and earring omission under hair — are fixed and now verified across the whole catalog. Remaining known imperfections, tracked in [eval/FAILURES.md](eval/FAILURES.md): mild face smoothing ("AI gloss") on full-body edits (identity 4/5 on all five clothing cases), occasional slight over-sizing of pendants and statement faces, noise-parity metrics that over-flag striped garments, and a newly documented mode (FM-E) where a garment swap invents a plausible under-layer (sheer tights under a knee-length dress, socks above sneakers) when the product doesn't cover what it removed. Single-pass editing models retain a smoothing bias the prompts reduce but cannot eliminate.
+- **Verified live:** image try-on works end-to-end for **all four jewelry types** — necklace and earrings on a face photo, ring and bracelet on a hand photo — and for **clothing tops and dresses** on a full-body photo (all results above are unedited app outputs). Both LTX video runs worked first try on the same pipeline.
+- **Not live-tested:** the oxford shirt, black dress and jeans share the verified clothing path but were not individually generated, to conserve quota; their prompt branches are covered by tests and all three are in the benchmark for the next full sweep.
+- **Realism is improved, not solved.** Three layers of fixes, each measured: (1) prompt-v2 closed the gross placement defects — hem drift and earring omission — benchmark-verified on the hard subset ([eval/BENCHMARK_RESULTS.md](eval/BENCHMARK_RESULTS.md)), aspect drift now 0.0; (2) **pixel-preserving compositing** ([eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md)) then eliminated the model's global re-synthesis — loss of facial texture, identity drift, background/exposure/grain drift — by restoring the original photo outside the edit, with the gain measured case-by-case. (3) an **optimization-phase re-audit** ([eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md) Part 3) tried to fix the remaining jewelry "floating / weak contact shadow" tell three ways — a strengthened prompt, deterministic contact-shadow synthesis, and a model refinement pass — and **rejected all three** because none beat the measurable + no-regression bar (the refinement's contact shadow was within ±1 luma of noise). It also found `gemini-3-pro-image` renders edit-region realism materially better but reframes unpredictably, and added a **background-reframe guard** to compositing so that model is safe to opt into. **Still open and honestly deferred** (a model limit, not the pipeline): metal-reflection realism, contact-shadow grounding and hair depth-ordering *inside* the edit region, and sheer/fine-embroidery fidelity on garments. Highest-leverage next step: adopt `gemini-3-pro-image` (gated by the framing guards), then a hybrid segmentation + matting/inpainting stage — a project, not a patch.
 - **Free-tier image quota is low.** Nano Banana free-tier image generation has small daily/per-minute caps; the app surfaces HTTP 429 as a clear, friendly message (screenshot above). Some Google projects have *zero* free image-gen quota — if every request 429s instantly, the fix is a key from a project with image quota, not a code change.
 - **Demo inputs are synthetic.** All "users" in the demos were generated for this project so no real person's likeness ships in the repo.
 - **Clothing product images are project-generated.** Clean royalty-free *product-style* garment photos (ghost-mannequin, white background) are hard to source legitimately, so the five clothing catalog images were generated with Nano Banana for this project and are labeled as such in `clothing.json`. The jewelry catalog uses real museum/Commons photographs.

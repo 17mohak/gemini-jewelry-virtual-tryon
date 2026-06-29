@@ -93,6 +93,70 @@ def sharpness_match(input_path: Path, output_path: Path) -> float:
     return eb / ea if ea > 0 else 1.0
 
 
+def _change_mask_512(a: Image.Image, b: Image.Image,
+                     delta_thr: float = 9.0, tex_thr: float = 3.0) -> "object":
+    """Boolean edit-region mask (True = changed) at the 512px analysis scale.
+
+    Uses the same two cues as the compositing change mask (CIELAB ΔE OR local-
+    texture change) so the metric's idea of "the edit" matches what the
+    pipeline actually composited. Lazily imports numpy/scipy (now hard deps)
+    so the cheap whole-frame metrics above stay Pillow-only.
+    """
+    import numpy as np
+    from scipy import ndimage
+    from backend.services.compositing import rgb_to_lab, _local_std
+
+    A = np.asarray(b.resize(a.size).convert("RGB"), np.float32)  # output
+    B = np.asarray(a.convert("RGB"), np.float32)                 # input
+    de = np.linalg.norm(rgb_to_lab(A) - rgb_to_lab(B), axis=-1)
+    la = A @ np.array([0.299, 0.587, 0.114], np.float32)
+    lb = B @ np.array([0.299, 0.587, 0.114], np.float32)
+    tex = np.abs(_local_std(la) - _local_std(lb))
+    hard = (de > delta_thr) | (tex > tex_thr)
+    hard = ndimage.binary_dilation(hard, iterations=3)  # exclude the edit halo
+    return hard
+
+
+def preserved_region_parity(input_path: Path, output_path: Path) -> dict:
+    """Noise / sharpness parity measured ONLY on the PRESERVED region.
+
+    The global ``noise_match`` / ``sharpness_match`` conflate two different
+    things on a clothing swap: (a) did the model alter grain/sharpness of the
+    UNTOUCHED parts of the photo (a real defect), and (b) does the new garment
+    have more edge energy than what it replaced (legitimate - a striped or
+    sequined garment simply has more detail than a plain tee). Computing parity
+    on the non-edited region isolates (a). This is the fix promised in
+    eval/BENCHMARK_RESULTS.md for the breton over-flag.
+
+    Returns ``{noise_preserved, sharpness_preserved, edit_fraction}``.
+    """
+    import numpy as np
+    from PIL import ImageFilter as _IF
+
+    a, b = _load(input_path), _load(output_path).resize(_load(input_path).size)
+    edit = _change_mask_512(a, b)
+    keep = ~edit
+    if keep.sum() < 0.02 * keep.size:  # almost everything changed; not meaningful
+        return {"noise_preserved": 1.0, "sharpness_preserved": 1.0,
+                "edit_fraction": round(float(edit.mean()), 4)}
+
+    def hp_std(im):
+        e = np.asarray(im.convert("L").filter(_IF.FIND_EDGES), np.float32)
+        return float(e[keep].std())
+
+    def edge_mean(im):
+        e = np.asarray(im.convert("L").filter(_IF.FIND_EDGES), np.float32)
+        return float(e[keep].mean())
+
+    na, nb = hp_std(a), hp_std(b)
+    sa, sb = edge_mean(a), edge_mean(b)
+    return {
+        "noise_preserved": round(nb / na, 3) if na > 0 else 1.0,
+        "sharpness_preserved": round(sb / sa, 3) if sa > 0 else 1.0,
+        "edit_fraction": round(float(edit.mean()), 4),
+    }
+
+
 def _skin_fraction(im: Image.Image) -> float:
     """Fraction of pixels matching a permissive RGB skin heuristic.
 
@@ -139,6 +203,34 @@ def brightness_drift(input_path: Path, output_path: Path) -> float:
     la = ImageStat.Stat(a.convert("L")).mean[0]
     lb = ImageStat.Stat(b.convert("L")).mean[0]
     return lb - la
+
+
+def mean_abs_diff(input_path: Path, output_path: Path) -> float:
+    """Global mean absolute pixel difference (0-255) over the whole frame.
+
+    A blunt overall-change measure. For a pixel-preserving composite this drops
+    sharply versus the raw model output, because everything outside the edit
+    region is restored to the original.
+    """
+    a = _load(input_path)
+    b = _load(output_path).resize(a.size)
+    return ImageStat.Stat(ImageChops.difference(a, b)).mean[0]
+
+
+def change_fraction(
+    input_path: Path, output_path: Path, threshold: int = 25
+) -> float:
+    """Fraction of pixels whose luma changed by more than ``threshold``.
+
+    Approximates the size of the genuinely edited region. Lower is better for a
+    pixel-preserving pipeline: it means fewer original pixels were disturbed.
+    """
+    a = _load(input_path).convert("L")
+    b = _load(output_path).resize(a.size).convert("L")
+    diff = ImageChops.difference(a, b)
+    hist = diff.histogram()
+    changed = sum(hist[threshold + 1:])
+    return changed / max(1, sum(hist))
 
 
 # ── Thresholds & scoring ─────────────────────────────────────────────────────

@@ -106,3 +106,37 @@ def test_lower_skin_ratio_detects_leg_erasure(tmp_path):
     assert ratio < 0.5
     values, flags = metrics.evaluate_case(a, b, is_clothing=True)
     assert any("lower_skin_ratio" in f for f in flags)
+
+
+def test_preserved_region_parity_ignores_the_edit(tmp_path):
+    """A high-detail garment pasted into one region must NOT make the preserved
+    region's noise/sharpness parity flag: parity is measured off-edit."""
+    base = Image.effect_noise((400, 600), 22).convert("RGB")
+    edited = base.copy()
+    # paste a high-frequency 'patterned garment' over the torso band
+    patch = Image.effect_noise((200, 220), 90).convert("RGB")
+    edited.paste(patch, (100, 120))
+    a = _save(tmp_path, "a.jpg", base)
+    b = _save(tmp_path, "b.jpg", edited)
+    # The global sharpness ratio is inflated by the busy patch...
+    assert metrics.sharpness_match(a, b) > 1.2
+    # ...but the preserved region is unchanged, so its parity stays ~1.0.
+    pr = metrics.preserved_region_parity(a, b)
+    assert 0.85 <= pr["noise_preserved"] <= 1.15
+    assert 0.85 <= pr["sharpness_preserved"] <= 1.15
+    assert pr["edit_fraction"] > 0.02
+
+
+def test_change_fraction_and_mean_abs_diff_measure_locality(tmp_path):
+    base = Image.effect_noise((400, 300), 24).convert("RGB")
+    edited = base.copy()
+    edited.paste((220, 40, 40), (180, 120, 230, 180))  # a small local edit
+    a = _save(tmp_path, "a.jpg", base)
+    b = _save(tmp_path, "b.jpg", edited)
+    # Identical images: ~no change, tiny mean diff.
+    assert metrics.change_fraction(a, a) < 0.01
+    assert metrics.mean_abs_diff(a, a) < 2.0
+    # A small painted block: a small but non-zero changed fraction.
+    cf = metrics.change_fraction(a, b)
+    assert 0.005 < cf < 0.20
+    assert metrics.mean_abs_diff(a, b) > metrics.mean_abs_diff(a, a)

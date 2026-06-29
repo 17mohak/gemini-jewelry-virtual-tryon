@@ -19,13 +19,30 @@ Evaluation-driven design notes:
 * A photographic-character section requires the new fabric to inherit the
   photo's flash/noise/sharpness - evaluation showed garments rendered with
   clean studio shading pasted into noisy flash photos.
+
+v3 (adversarial garment stress audit, eval/stress_manifest.json):
+
+* Expanded the type taxonomy beyond {top, dress, trousers}. The stress set
+  contains skirts, outerwear (jackets/hoodies) and two-piece sets, which the
+  old taxonomy could only mis-map (a skirt -> "trousers" grew legs; a jacket
+  -> "top" deleted the layer underneath). Added ``skirt``, ``jacket`` and
+  ``set`` with correct fit physics, plus a ``layer`` field: outerwear is worn
+  OVER the existing clothing, not swapped for it.
+* Added keyword-triggered MATERIAL PHYSICS. Generic "reproduce the pattern"
+  language is fine for plain garments but fails on sequins, beading, satin,
+  sheer fabric, feathers, metal hardware, etc. - the exact things that read as
+  AI-generated on close inspection. Each embellished garment now gets targeted,
+  physically grounded rendering instructions (e.g. "each sequin is a tiny
+  mirror reflecting the SAME scene lights"). Plain garments match no keywords
+  and get no extra text, so simple catalog items do not regress.
 """
 
 from __future__ import annotations
 
 from typing import Mapping
 
-CLOTHING_TYPES = frozenset({"top", "dress", "trousers"})
+# Expanded taxonomy. All map to a full-body photo.
+CLOTHING_TYPES = frozenset({"top", "dress", "trousers", "skirt", "jacket", "set"})
 
 PHOTO_KIND_BODY = "body"
 
@@ -77,7 +94,44 @@ _FIT: Mapping[str, str] = {
         "unless the product shows otherwise) - shoes and feet remain exactly "
         "as in Image 1. The upper-body clothing stays exactly as in Image 1."
     ),
+    "skirt": (
+        "Replace ONLY the person's lower-body garment with the product skirt. "
+        "Fit it at the waist and hips. A skirt is OPEN below its hem: the legs "
+        "below the hem stay BARE and fully visible exactly as in Image 1 - do "
+        "NOT render trouser legs, leggings or any fabric down the legs, and do "
+        "not lengthen the skirt. The hem ends at exactly the same point on the "
+        "body as in the product photo (measure against the thigh / knee). "
+        "Preserve the skirt's real construction (wrap overlap, pleats, tiers, "
+        "asymmetry). The upper-body clothing stays exactly as in Image 1."
+    ),
+    "jacket": (
+        "Put the product jacket on the person. Fit it to the torso and arms "
+        "with the front as shown in the product (open or closed), sleeves "
+        "following the arms' pose, the collar and shoulders sitting "
+        "naturally, and the hem ending where the product's hem ends. Keep the "
+        "jacket's real structure (collar/lapels, closures, panels, pockets). "
+        "The lower body stays exactly as in Image 1."
+    ),
+    "set": (
+        "This product is a TWO-PIECE set (a top and a bottom shown together). "
+        "Put BOTH pieces on the person as one coordinated outfit, fitting each "
+        "to its matching body region and matching each piece's neckline, "
+        "length and asymmetry to the product. Any skin the set leaves exposed "
+        "between the pieces (for example a bare midriff) stays visible and "
+        "unchanged - do NOT join the two pieces into a single dress. "
+        "Everything the set does not cover stays exactly as in Image 1."
+    ),
 }
+
+# Outerwear worn OVER existing clothing rather than swapped for it.
+_LAYERING = (
+    "Layering: this garment is OUTERWEAR worn OVER the person's existing "
+    "clothing. Keep the garment currently on the person in Image 1 underneath "
+    "and let it stay visible where it naturally would - at the open front, "
+    "around the collar/neckline, at the cuffs, and below the hem. Do NOT "
+    "delete or replace the layer underneath; only add this outer layer on top "
+    "of it."
+)
 
 _PRESERVATION = (
     "Image 1 is the base photograph and must remain the same photo of the "
@@ -138,11 +192,97 @@ _HARD_CONSTRAINTS = (
 )
 
 
+# ── Material physics (keyword-triggered) ──────────────────────────────────────
+# Each entry: (trigger keywords, instruction). Triggered by scanning the item's
+# name + description + materials + construction text. Embellished garments get
+# targeted, physically grounded rendering language; plain garments match nothing
+# and get no extra text (so simple catalog items do not regress).
+
+_MATERIAL_PHYSICS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("sequin", "paillette", "sparkl", "glitter"),
+     "Sequins/paillettes: render each disc as an individual tiny mirror that "
+     "reflects the SAME light sources and surroundings as the rest of the "
+     "photo, so the embellishment reads as many small, sharp, VARIED specular "
+     "highlights (some bright, some in shadow) - never a uniform printed "
+     "glitter texture or a single flat sheen. Keep their real size and "
+     "fish-scale overlap, and let the highlights shift across the body's curves."),
+    (("bead", "embroider", "embroidery"),
+     "Beading/embroidery: render raised threads and beads that sit ON the "
+     "surface, each catching a small specular point and casting a faint "
+     "shadow; reproduce the motif faithfully (do not turn it into random "
+     "noise) and keep metallic beads metallic with bright pinpoint highlights."),
+    (("satin", "silk", "taffeta", "charmeuse"),
+     "Satin/silk: render an anisotropic directional sheen - a soft elongated "
+     "highlight that runs along the fabric and travels as the folds turn - not "
+     "a matte, flat or plastic-looking surface."),
+    (("sheer", "organza", "mesh", "tulle", "lace", "transparen", "translucen", "chiffon"),
+     "Sheer fabric: it is semi-transparent - the skin or body directly behind "
+     "it must stay visible THROUGH it, tinted by the fabric colour and darker "
+     "where layers overlap; never render it as an opaque panel."),
+    (("velvet",),
+     "Velvet: a deep matte pile with a soft bloom and darker crushed tone "
+     "where it folds or is compressed."),
+    (("denim", "jean"),
+     "Denim: matte cotton twill with a fine diagonal weave and natural wash "
+     "variation (lighter whiskers and seams, darker recesses); not a flat "
+     "single colour."),
+    (("feather", "fringe", "tassel"),
+     "Feathers/fringe: render as many fine, separated, soft strands with gaps "
+     "between them that hang and move independently and let a little "
+     "background show through - never a solid moulded mass."),
+    (("ruch", "drape", "pleat", "gather", "ruffle"),
+     "Gathers/ruching/pleats/ruffles: keep the three-dimensional folds with "
+     "their own highlights and core shadows; do not smooth them flat."),
+    (("appliqu", "rosette", "3d flower", "orchid"),
+     "3D appliqués: the flowers/rosettes stand OFF the fabric as real objects "
+     "with rounded shaded volume and small contact shadows - not a printed "
+     "pattern."),
+    (("grommet", "eyelet", "stud", "hardware", "rivet"),
+     "Metal hardware (grommets/eyelets/studs): polished metal with bright "
+     "clipped speculars and dark interiors that reflect the scene; keep their "
+     "exact count and placement."),
+    (("corset", "boned", "boning", "bustier"),
+     "Corset structure: keep the vertical boning channels and seams as subtle "
+     "raised lines that shape the torso; do not smooth the bodice into a plain "
+     "tube."),
+    (("stripe", "trefoil", "logo", "wordmark", "brand"),
+     "Stripes/logos: keep stripe trims straight, evenly spaced and the SAME "
+     "count as the product as they follow the limbs; reproduce any logo or "
+     "wordmark legibly and in its correct place rather than inventing garbled "
+     "text."),
+    (("polka", "dot", "gingham", "check", "houndstooth"),
+     "Regular pattern: keep the motif's size and spacing even and let it "
+     "follow the body's curves with correct perspective; it must not smear, "
+     "bunch or change scale across folds."),
+    (("ombre", "ombré", "gradient", "graduated", "dip-dye", "dip dye"),
+     "Colour gradient: preserve the gradient's direction and the order of its "
+     "colours exactly as in the product; do not flip or flatten it."),
+    (("bubble", "puffball", "balloon"),
+     "Structured volume (bubble/puffball hem): the hem balloons OUT and does "
+     "NOT follow the body - keep its rounded standalone volume with its own "
+     "internal shadows; do not collapse it into a flat or bodycon skirt."),
+)
+
+
+def material_guidance(item: Mapping[str, str]) -> list[str]:
+    """Return the material-physics snippets relevant to this garment."""
+    hay = " ".join(
+        str(item.get(k, "")) for k in ("name", "description", "materials", "construction")
+    ).lower()
+    snippets: list[str] = []
+    for keywords, instruction in _MATERIAL_PHYSICS:
+        if any(kw in hay for kw in keywords):
+            snippets.append(instruction)
+    return snippets
+
+
 def build_clothing_tryon_prompt(item: Mapping[str, str]) -> str:
     """Build the full clothing try-on edit prompt for a catalog item.
 
     ``item`` is a catalog entry with at least ``name``, ``type`` and
-    ``description``. Optional fields: ``prompt_hint`` (item-specific
+    ``description``. Optional fields: ``materials`` and ``construction``
+    (anchored verbatim and used to trigger material physics), ``layer``
+    ("over" for outerwear, else a swap), ``prompt_hint`` (item-specific
     instruction) and ``coverage`` (structured statement of which body regions
     the garment covers and which must stay visible - injected as a hard
     geometry constraint).
@@ -152,14 +292,23 @@ def build_clothing_tryon_prompt(item: Mapping[str, str]) -> str:
 
     name = (item.get("name") or clothing_type).strip()
     description = (item.get("description") or "").strip()
+    materials = (item.get("materials") or "").strip()
+    construction = (item.get("construction") or "").strip()
     hint = (item.get("prompt_hint") or "").strip()
     coverage = (item.get("coverage") or "").strip()
+    layer = (item.get("layer") or "").strip().lower()
 
     product_block = f'The product is "{name}" ({clothing_type}): {description}'
+    if materials:
+        product_block += f"\nMaterials: {materials}."
+    if construction:
+        product_block += f"\nConstruction: {construction}."
     if hint:
         product_block += f"\nItem-specific instruction: {hint}"
 
     fit_block = "Fit: " + _FIT[clothing_type]
+    if layer == "over":
+        fit_block += "\n" + _LAYERING
     if coverage:
         fit_block += (
             f"\nCoverage constraint for this exact garment: {coverage} "
@@ -179,8 +328,13 @@ def build_clothing_tryon_prompt(item: Mapping[str, str]) -> str:
         "Preservation: " + _PRESERVATION,
         "Photographic character: " + _PHOTOGRAPHIC_CHARACTER,
         "Garment fidelity: " + _FIDELITY_RULES,
-        _HARD_CONSTRAINTS,
     ]
+
+    physics = material_guidance(item)
+    if physics:
+        sections.append("Material rendering (critical for realism):\n- " + "\n- ".join(physics))
+
+    sections.append(_HARD_CONSTRAINTS)
     return "\n\n".join(sections)
 
 
