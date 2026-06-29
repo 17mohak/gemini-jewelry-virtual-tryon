@@ -131,6 +131,42 @@ def test_huge_change_bails_to_raw(base_array):
     assert np.abs(out.astype(np.float32) - noise).mean() < 1.0
 
 
+def _smooth_scene() -> np.ndarray:
+    """A smooth, low-frequency backdrop like a real photo's wall."""
+    yy, xx = np.mgrid[0:200, 0:200].astype(np.float32)
+    img = np.repeat((120.0 + 25.0 * np.sin(xx / 70.0) * np.cos(yy / 80.0))[..., None], 3, axis=2)
+    img += np.random.default_rng(3).normal(0, 3, img.shape).astype(np.float32)
+    return np.clip(img, 0, 255)
+
+
+def test_background_reframe_bails():
+    """When the model reframes/re-renders the scene, the background no longer
+    corresponds pixel-for-pixel; alpha-compositing the original background onto
+    it would ghost the silhouette. The aspect-ratio guard cannot catch a
+    within-aspect drift; the structural background-drift guard does. Here the
+    LOCAL edit is tiny (edit_frac~0.04) but the smooth background has drifted, so
+    the pipeline must bail rather than composite."""
+    base = _smooth_scene()
+    yy, xx = np.mgrid[0:200, 0:200].astype(np.float32)
+    drift = 12.0 * np.sin(xx / 23.0 + 1.0) * np.cos(yy / 19.0)  # smooth non-linear drift
+    model = np.clip(base + drift[..., None], 0, 255).astype(np.float32)
+    model[95:120, 95:120] = [200.0, 60.0, 60.0]  # small local edit
+    _out, info = C.composite_arrays(base, model)
+    assert not info["applied"]
+    assert "reframed" in info["reason"]
+
+
+def test_faithful_output_is_not_flagged_as_reframe():
+    """The reframe guard must NOT fire on a faithful, aligned edit (background
+    preserved): the same scene with only the local edit stays composited."""
+    base = _smooth_scene()
+    model = base.copy()
+    model[95:120, 95:120] = [200.0, 60.0, 60.0]
+    _out, info = C.composite_arrays(base, model)
+    assert info["applied"]
+    assert "reframed" not in info.get("reason", "")
+
+
 def test_aspect_mismatch_bails(tmp_path):
     base = Image.new("RGB", (160, 160), (120, 120, 120))
     base_path = tmp_path / "base.jpg"

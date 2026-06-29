@@ -40,9 +40,10 @@ Pipeline (all numpy / scipy / Pillow — no heavy CV dependency)
    its grain matches the surrounding original photo.
 6. Alpha-composite: ``original * (1 - a) + harmonized_model * a``.
 
-A safety valve returns the raw model output unchanged when the mask is empty
-or implausibly large (so the post-process can never make things worse than the
-baseline it replaces).
+Safety valves return the raw model output unchanged when the mask is empty,
+implausibly large, the aspect ratio changed, or the background drifted (the
+model reframed within the same aspect ratio) - so the post-process can never
+make things worse than the baseline it replaces.
 
 Identity preservation is a *consequence* of step 3, not a separate stage: the
 face lies outside the change mask, so its pixels are the literal original — no
@@ -83,6 +84,7 @@ class CompositeConfig:
     dilate_px: int = 6             # grow mask to include contact shadows
     feather_px: float = 4.0        # gaussian feather of the alpha boundary
     max_edit_frac: float = 0.75    # bail to raw output above this changed area
+    bg_drift_max: float = 3.0      # bail if the background (outside the edit) structurally drifted this much
     grain_strength: float = 0.8    # 0 disables grain match; 1 = full match
     tone_harmonize: bool = True
 
@@ -297,6 +299,26 @@ def composite_arrays(
     if edit_frac > cfg.max_edit_frac:
         info.update(applied=False, reason=f"edit region too large ({edit_frac:.0%})")
         return np.clip(model, 0, 255).astype(np.uint8), info
+
+    # Background-reframe guard. The aspect-ratio guard in composite_bytes only
+    # catches re-crops that change the frame SHAPE. A model (especially the
+    # higher-capability gemini-3-pro-image) can also zoom/pan WITHIN the same
+    # aspect ratio - the background then no longer corresponds pixel-for-pixel,
+    # and alpha-compositing the original background onto a shifted body bakes in
+    # ghosting at the silhouette. Detect it on the area OUTSIDE the edit (which
+    # should be the untouched original scene). The drift is measured on a
+    # BLURRED copy so it responds to STRUCTURAL drift (content that moved - a
+    # reframe) and ignores high-frequency grain/denoise mismatch, which is not a
+    # reframe. Measured separation (eval): faithful outputs 1.0-1.3, an 8% zoom
+    # 4.6, a full reframe 999.
+    background = ~ndimage.binary_dilation(hard, iterations=8)
+    if background.sum() >= 100:
+        b_lo = ndimage.gaussian_filter(base, (2, 2, 0))
+        h_lo = ndimage.gaussian_filter(harmonized, (2, 2, 0))
+        bg_drift = float(np.abs(b_lo - h_lo).mean(axis=2)[background].mean())
+        if bg_drift > cfg.bg_drift_max:
+            info.update(applied=False, reason=f"background reframed (drift {bg_drift:.1f})")
+            return np.clip(model, 0, 255).astype(np.uint8), info
 
     a = alpha[..., None]
     out = base * (1.0 - a) + harmonized * a

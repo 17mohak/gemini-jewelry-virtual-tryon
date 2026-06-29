@@ -35,3 +35,5 @@ eval/compositing/
 # ignore only the regenerable per-run outputs and scratch.
 eval/stress/runs/
 eval/stress/out/
+eval/stress/_*
+eval/stress/sweep.log
