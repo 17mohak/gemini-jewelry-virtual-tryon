@@ -469,6 +469,22 @@ product this matters - a reframe loses the "same photo of *this* person"
 guarantee. So pro is **not** a safe default; it is an opt-in quality/framing
 trade-off.
 
+**Clothing follow-up (consolidation sprint).** Pro was re-tested on the five
+hardest *garments* (satin gown, bubble hem, paillette top, banded-sequin skirt,
+sheer beaded skirt). Two findings: (1) pro **preserved framing on all five**
+full-body shots (no reframe), so the guard never had to fire - the reframe risk
+appears specific to tight portrait crops; (2) but the visual gain over flash was
+**marginal at 400% zoom** - slightly crisper appliqué/disc edges, a touch more
+skin-through on the sheer skirt, nothing decisive, and the sheer-opacity limit
+persisted in both. Evidence:
+[`docs/realism/`](../docs/realism) clothing flash-vs-pro crops. Conclusion:
+**flash is already near pro's ceiling for clothing**, so the default stays flash
+(faster, cheaper) and pro remains an opt-in for jewelry, where its gain is real.
+A separate seam check at every garment↔skin boundary (off-shoulder neckline,
+halter straps, armholes) found **no compositing seams or halos** - so the
+clothing pipeline is at its practical ceiling, and the consolidation sprint
+added curation and documentation rather than new code.
+
 ## Implemented this phase: a background-reframe guard (the one merge)
 
 Discovering pro's within-aspect reframe exposed a real hole: the compositing
