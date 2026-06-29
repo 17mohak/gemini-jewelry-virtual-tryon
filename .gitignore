@@ -36,4 +36,4 @@ eval/compositing/
 eval/stress/runs/
 eval/stress/out/
 eval/stress/_*
-eval/stress/sweep.log
+eval/stress/*.log
