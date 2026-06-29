@@ -195,6 +195,16 @@ Full analysis and evidence: [eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md)
 - **Stress harness** — [eval/stress_eval.py](eval/stress_eval.py) runs the full
   pipeline on the set and emits comparison + diff panels (`python eval/stress_eval.py --all`).
 
+**Live sweep result** (`gemini-3.1-flash-image`, 20/21 generated; 1 model
+refusal): the redesign holds up under zoom on real generations — skirts keep
+legs bare, jackets layer over the tee, paillettes render as individual discs,
+satin/3D-appliqué/bubble-hems render, and every preserved pixel is the original
+photo (off-edit parity ~1.00 on all 20). Evidence panels:
+[docs/realism/stress/](docs/realism/stress). The remaining defects are
+**model-bound** — a content-policy refusal on a revealing cut-out (ref_15), and
+sheer-fabric transparency that an A/B proved prompt-insensitive — not pipeline
+issues. Full analysis: [eval/REALISM_AUDIT.md](eval/REALISM_AUDIT.md) (Part 2).
+
 ### Part 2: clothing prompts are deliberately separate
 
 Clothing lives in its own module ([`clothing_prompt_builder.py`](backend/services/clothing_prompt_builder.py)) because the task is fundamentally different: jewelry is an **addition** (change nothing except adding one object), while clothing is a **garment swap** (remove one garment, fit another to the body). Sharing prompt text would weaken both. The clothing builder keeps the same six-section skeleton but swaps the physics: per-type *fit* language (tops replace only the upper-body garment and keep the lower body untouched; trousers the reverse; dresses replace the outfit with gravity-correct skirt drape), preservation extends to **body shape and proportions**, and fidelity language centers on **pattern scale, direction and alignment** — which is why the breton stripes survive intact in the demo above.

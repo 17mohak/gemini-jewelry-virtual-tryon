@@ -245,20 +245,55 @@ ones that can be validated.
   residual; fixing that risks over-correcting plain garments, so it was left
   alone. Evidence over intuition: no change merged.
 
-## Status of this iteration
+## Live sweep results (`gemini-3.1-flash-image`, 21 garments)
 
-Implemented + offline-validated (deterministic tests + controlled experiments +
-the existing real outputs): the taxonomy/material/layering prompt redesign, the
-texture-cue change mask, and the preserved-region parity metric. A one-command
-live harness ([`eval/stress_eval.py`](stress_eval.py)) is ready to generate and
-score all 21 garments through the full pipeline.
+The full sweep ran on `gemini-3.1-flash-image` (`python eval/stress_eval.py
+--all`). **20/21 generated; 1 model refusal.** Every composite's
+preserved-region noise/sharpness parity came back ~1.00 — the compositing stage
+disturbed nothing outside the edit on any garment. Curated panels and zooms are
+in [`docs/realism/stress/`](../docs/realism/stress) (full set regenerable into
+`eval/stress/runs/`).
 
-> **Live adversarial sweep: pending a working Nano Banana key.** The key in
-> `.env` at audit time was a Vertex Express `AQ.` key that every Google endpoint
-> rejected (`ACCESS_TOKEN_TYPE_UNSUPPORTED`). The pixel-level per-garment
-> artifact analysis (which failures are prompt- vs model- vs compositing-borne)
-> requires real generations and is recorded here once the sweep runs:
-> `python eval/stress_eval.py --all`.
+**The v3 prompt redesign is validated on real generations — the wins the simple
+catalog could never exercise:**
+
+* **Taxonomy / skirts** (ref_18/19/21) — render as skirts with the legs **bare
+  below the hem** and the existing tee preserved; no trouser-legs. The old
+  `trousers` mis-mapping is gone.
+* **Layering / outerwear** (ref_01 hoodie, ref_02 track jacket, ref_16 moto
+  jacket) — worn **over** the existing tee, which stays visible at the open
+  front/collar (clearest on ref_16). No underlayer deletion.
+* **Material physics holding up under zoom** — ref_13 paillettes render as
+  *individual overlapping discs with varied speculars* (not flat glitter);
+  ref_05 satin gown shows 3D orchid appliqués with gold centres + a satin sheen;
+  ref_10 bubble hem keeps its standalone balloon volume; ref_16 dangling laces
+  survive as thin elements; ref_02's 3-stripe trim and trefoil logo are legible
+  (all predicted to fail in the manifest).
+* **Compositing** — identity, background and grain are the original pixels on
+  every result; off-edit parity ~1.00 across all 20.
+* **Masked metric, confirmed on real data** — ref_09 (polka dot) trips the
+  *global* noise/sharp flag (1.54 / 1.69) while its *preserved-region* parity is
+  clean (1.00 / 1.01): the flag is the garment's legitimate edge energy, exactly
+  what `preserved_region_parity` was built to separate.
+
+**Remaining failures, attributed to stage (with evidence):**
+
+| Garment | Symptom | Origin | Prompt-fixable? |
+| --- | --- | --- | --- |
+| ref_15 (grommet two-piece, bare midriff/one-shoulder) | hard refusal, `finishReason=IMAGE_SAFETY` | **Model / content policy** — the revealing cut-out trips Nano Banana's people-safety filter | No. Surfaced as a clear user message; not a realism defect. |
+| ref_21, ref_07 (sheer mesh / organza) | fabric reads semi-opaque; leg/skin does not show through the mesh | **Model** | **Tested and rejected.** A deliberately strengthened "SEE-THROUGH, show more skin through it" instruction produced no measurable change in an A/B (both renders equally opaque). The instruction is correct; the model caps out. |
+| ref_14 (celestial metallic embroidery) | figurative motif reproduced loosely / impressionistically | **Model** fidelity ceiling on fine figurative beadwork | Marginal — the motif is anchored verbatim; the model approximates it. |
+| ref_03 (ombré) | bodice colour drifts toward silver vs the product's peach top | **Model** fidelity | Marginal. |
+
+**Conclusion.** On this adversarial set the realism ceiling is now set by the
+**model**, not the pipeline: structured garments, skirts, outerwear layering,
+sequins, satin, 3D appliqué, bubble hems and beadwork all render convincingly,
+and every preserved pixel is the original photograph. The residual defects are
+(a) a content-policy refusal, (b) sheer transparency, and (c) fine figurative
+fidelity — the first is policy, and the latter two were either A/B-tested to be
+prompt-insensitive or are anchored as strongly as the prompt channel allows.
+Further gains require a different model (or a hybrid segmentation/matting/
+inpainting stage), not another prompt or compositing tweak.
 
 ### Reproduce (v3)
 
