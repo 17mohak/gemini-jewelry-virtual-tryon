@@ -1,0 +1,216 @@
+{
+  "description": "Adversarial garment stress set for the virtual-try-on pipeline. Images live in eval/stress/refs/ (gitignored; user-supplied, treated as local stress assets, NOT catalog items). Each entry is BOTH the difficulty analysis (deliverables #1/#2) and the input to eval/stress_eval.py. `type` uses the EXPANDED clothing taxonomy added this iteration (top/dress/trousers/skirt/jacket/set). `layer`: 'replace' = swap the matching garment; 'over' = put on OVER existing clothing (outerwear). `primary_stress` names the pipeline stage each garment most stresses.",
+  "base_person": "docs/demo/input_body.jpg",
+  "items": [
+    {
+      "id": "ref_01", "file": "ref_01.jpeg", "name": "Cherry-Blossom Zip Hoodie", "type": "jacket", "layer": "over",
+      "materials": "soft pink cotton-fleece body; brown sherpa-lined hood interior; embroidered cherry-blossom branch",
+      "construction": "oversized zip-up hoodie, drawcord hood, kangaroo pocket, ribbed cuffs and hem; pink sakura branch embroidery across left chest and sleeve",
+      "coverage": "covers torso and arms over the existing top; lower body, legs and shoes stay exactly as in the photo",
+      "difficulty": 4,
+      "hard_because": ["outerwear worn OVER a tee, not a swap", "embroidery fidelity (figurative branch)", "oversized drape vs body", "two materials (fleece + sherpa hood lining)"],
+      "predicted_failures": ["pipeline treats it as a top-swap and deletes the tee instead of layering", "embroidery garbled or moved", "hood interior rendered as solid pink"],
+      "primary_stress": "prompt-builder (no layering/outerwear semantics)"
+    },
+    {
+      "id": "ref_02", "file": "ref_02.jpeg", "name": "Denim Track Jacket", "type": "jacket", "layer": "over",
+      "materials": "light-wash denim; ribbed knit collar/cuffs/hem; grosgrain stripe trim",
+      "construction": "stand/mandarin collar, center-front frog-knot button closures, 3-stripe trim down both sleeves, trefoil logo on right chest, side pockets",
+      "coverage": "covers torso and arms over the existing top; lower body stays as in the photo",
+      "difficulty": 5,
+      "hard_because": ["brand logo + trefoil (text/logo hallucination)", "frog-knot closures (unusual fasteners)", "stripe alignment along moving sleeves", "structured collar", "outerwear layering"],
+      "predicted_failures": ["garbled logo/wordmark", "stripes wander or change count", "frog closures become normal buttons", "treated as swap"],
+      "primary_stress": "model (logo/text) + prompt-builder (layering)"
+    },
+    {
+      "id": "ref_03", "file": "ref_03.jpeg", "name": "Pink Ombre Beaded Mini Dress", "type": "dress", "layer": "replace",
+      "materials": "allover micro-bead/sequin embellishment, silver-to-pink vertical ombre, on a fitted base",
+      "construction": "square neckline, thick straps, fitted bodice and short skirt, front side slit",
+      "coverage": "covers torso to upper thigh (mini); shoulders, arms and legs below mid-thigh stay bare and visible",
+      "difficulty": 4,
+      "hard_because": ["allover bead specular highlights", "ombre gradient direction must be preserved", "mini length / leg preservation"],
+      "predicted_failures": ["beads flattened to printed texture (loses sparkle)", "ombre direction lost or reversed", "skirt lengthened over legs"],
+      "primary_stress": "model (specular micro-elements) + prompt (material vocab)"
+    },
+    {
+      "id": "ref_04", "file": "ref_04.jpeg", "name": "Lilac Floral One-Shoulder Mini", "type": "dress", "layer": "replace",
+      "materials": "smooth jersey with a printed lilac iris/floral pattern on white",
+      "construction": "asymmetric one-shoulder neckline, single strap, fitted mini",
+      "coverage": "covers torso to upper thigh; one shoulder and both arms bare; legs below mini bare",
+      "difficulty": 3,
+      "hard_because": ["asymmetric one-shoulder (one shoulder bare, one covered)", "placed floral print alignment", "bare-shoulder skin preservation"],
+      "predicted_failures": ["symmetry imposed (both shoulders covered)", "print scale/placement drift"],
+      "primary_stress": "prompt (asymmetry) + compositing (bare-shoulder skin edge)"
+    },
+    {
+      "id": "ref_05", "file": "ref_05.jpeg", "name": "Orchid-Appliqué Satin Gown", "type": "dress", "layer": "replace",
+      "materials": "ivory satin (anisotropic sheen); 3D white orchid appliqués with gold centers; embroidered trailing stems/beads",
+      "construction": "halter with thin crossing straps, fitted column bodice, floor-length skirt with side slit",
+      "coverage": "covers torso to floor (maxi); shoulders/upper back bare; the floor-length hem will reach the ankles/shoes",
+      "difficulty": 5,
+      "hard_because": ["satin anisotropic sheen (directional specular)", "3D floral appliqué fidelity", "floor-length hem -> leg/shoe handling", "thin crossing straps occlusion"],
+      "predicted_failures": ["satin rendered matte or plasticky", "orchids flattened/garbled", "hem erases legs/feet or floats above floor", "straps dropped"],
+      "primary_stress": "model (satin + 3D appliqué) + prompt (hem landmark)"
+    },
+    {
+      "id": "ref_06", "file": "ref_06.jpeg", "name": "Rosette-Strap Pink Mini", "type": "dress", "layer": "replace",
+      "materials": "matte pink stretch knit; 3D fabric rosette appliqués",
+      "construction": "bodycon mini, 3D rosette flowers along the straps and one hip, ruched side",
+      "coverage": "covers torso to upper thigh; arms and legs bare",
+      "difficulty": 3,
+      "hard_because": ["3D rosette appliqués (volume vs flat)", "bodycon fit/ruching"],
+      "predicted_failures": ["rosettes flattened to print", "ruching smoothed away"],
+      "primary_stress": "model (3D appliqué)"
+    },
+    {
+      "id": "ref_07", "file": "ref_07.jpeg", "name": "Blush Corset Puff-Sleeve Top", "type": "top", "layer": "replace",
+      "materials": "blush cotton/organza; sheer organza puff sleeves; metallic silver embroidered trim rows",
+      "construction": "boned corset bodice, sweetheart neckline, center-front lace-up tie, short sheer puff sleeves, peplum flare hem",
+      "coverage": "covers torso to waist with a short peplum; shoulders covered by sheer puff sleeves; midriff and below stay as in photo",
+      "difficulty": 5,
+      "hard_because": ["sheer organza puff sleeves (transparency over skin)", "corset boning structure", "lace-up tie (thin element)", "peplum geometry", "metallic trim rows"],
+      "predicted_failures": ["sheer sleeves rendered opaque", "boning/lace-up lost", "puff volume collapsed", "peplum merged into a plain hem"],
+      "primary_stress": "model (sheer + structure) + prompt (material) + compositing (transparency edge)"
+    },
+    {
+      "id": "ref_08", "file": "ref_08.jpeg", "name": "Floral Corset Bustier", "type": "top", "layer": "replace",
+      "materials": "structured satin with a small ditsy floral print",
+      "construction": "boned bustier, sweetheart neckline, thin straps, fitted to the waist",
+      "coverage": "covers the torso to the waist; arms and everything below the waist stay as in the photo",
+      "difficulty": 3,
+      "hard_because": ["boning seams", "small floral print scale", "bustier fit"],
+      "predicted_failures": ["boning seams smoothed", "floral scale drift"],
+      "primary_stress": "model (fine print) + prompt"
+    },
+    {
+      "id": "ref_09", "file": "ref_09.jpeg", "name": "Polka-Dot Halter Midi", "type": "dress", "layer": "replace",
+      "materials": "cream cotton with regular black polka dots",
+      "construction": "halter neckline, fitted bodice, A-line midi skirt",
+      "coverage": "covers torso to mid-calf (midi); shoulders/back bare; lower legs and shoes stay visible",
+      "difficulty": 4,
+      "hard_because": ["regular polka-dot lattice (perspective/contour distortion shows instantly)", "dot spacing must stay even over folds", "midi hem landmark"],
+      "predicted_failures": ["dots smear, change size, or lose alignment over the body", "hem drift"],
+      "primary_stress": "model (regular pattern under deformation)"
+    },
+    {
+      "id": "ref_10", "file": "ref_10.jpeg", "name": "Ivory Bubble-Hem Off-Shoulder Mini", "type": "dress", "layer": "replace",
+      "materials": "ivory satin/taffeta (structured, glossy)",
+      "construction": "off-shoulder bardot neckline, fitted bodice, dramatic puffball/bubble hem with built-in volume",
+      "coverage": "covers torso to upper thigh as a balloon hem; both shoulders and upper arms bare; legs bare",
+      "difficulty": 5,
+      "hard_because": ["bubble/puffball hem = volume that does NOT follow the body (anti-bodycon)", "off-shoulder bare shoulders", "satin gloss"],
+      "predicted_failures": ["bubble hem collapsed into a normal flared skirt", "shoulders covered", "satin rendered matte"],
+      "primary_stress": "model (non-body-conforming volume)"
+    },
+    {
+      "id": "ref_11", "file": "ref_11.jpeg", "name": "Pink Satin Ruched Strapless", "type": "dress", "layer": "replace",
+      "materials": "pink satin (high sheen)",
+      "construction": "strapless, asymmetric ruched bodice with a fabric rosette, draped tulip mini, side cascade",
+      "coverage": "covers torso to upper thigh; shoulders and arms fully bare; legs bare",
+      "difficulty": 4,
+      "hard_because": ["satin specular highlights on heavy ruching", "strapless (bare shoulders/arms)", "asymmetric drape"],
+      "predicted_failures": ["satin highlights flattened", "ruching smoothed", "straps invented"],
+      "primary_stress": "model (satin drape) + compositing (bare-shoulder skin)"
+    },
+    {
+      "id": "ref_12", "file": "ref_12.jpeg", "name": "Pale-Yellow Floral Corset", "type": "top", "layer": "replace",
+      "materials": "pale yellow with small floral print, boned",
+      "construction": "boned corset top, straight neckline, thin straps",
+      "coverage": "covers torso to waist; arms and below the waist stay as in the photo",
+      "difficulty": 3,
+      "hard_because": ["boning seams", "small floral", "corset fit"],
+      "predicted_failures": ["boning lost", "print drift"],
+      "primary_stress": "model (fine detail)"
+    },
+    {
+      "id": "ref_13", "file": "ref_13.jpeg", "name": "Rose Paillette Mock-Neck Top", "type": "top", "layer": "replace",
+      "materials": "oversized round flat paillettes (large disc sequins) in dusty rose; semi-sheer side panels",
+      "construction": "high mock neck, sleeveless, slight peplum flare hem",
+      "coverage": "covers torso to waist with a short flare; arms bare; below the waist stays as in the photo",
+      "difficulty": 5,
+      "hard_because": ["LARGE paillettes each a separate specular disc (extreme sparkle, classic AI tell)", "discs overlap like fish-scales", "semi-sheer panels"],
+      "predicted_failures": ["paillettes -> uniform glitter texture (loses individual discs and scene-matched speculars)", "sheer panels opaque"],
+      "primary_stress": "model (large specular elements) + compositing (grain match may flatten sparkle)"
+    },
+    {
+      "id": "ref_14", "file": "ref_14.jpeg", "name": "Celestial Beaded Denim Mini", "type": "dress", "layer": "replace",
+      "materials": "dark navy denim base; copper/bronze metallic beaded embroidery (celestial/zodiac motif)",
+      "construction": "square neckline, thick straps, fitted mini with a front kick-pleat slit",
+      "coverage": "covers torso to upper thigh; shoulders/arms bare; legs below the mini stay visible",
+      "difficulty": 5,
+      "hard_because": ["dark base + metallic beaded specular embroidery", "figurative/celestial motif fidelity (will garble)", "kick-pleat"],
+      "predicted_failures": ["embroidery becomes random metallic noise", "motif figures garbled", "dark fabric crushed to black"],
+      "primary_stress": "model (figurative metallic embroidery)"
+    },
+    {
+      "id": "ref_15", "file": "ref_15.jpeg", "name": "Grommet Asymmetric Two-Piece", "type": "set", "layer": "replace",
+      "materials": "charcoal jersey; large polished silver grommets/eyelets",
+      "construction": "one-shoulder asymmetric crop top + matching mini skirt, with rows of large metal grommets along the diagonal raw edges; bare midriff",
+      "coverage": "two pieces: crop top over the chest (one shoulder bare) and a mini skirt; the midriff between them, one arm/shoulder, and the legs stay bare and visible",
+      "difficulty": 5,
+      "hard_because": ["TWO separate garments (set) - no taxonomy support", "asymmetric one-shoulder", "bare midriff between pieces (skin preservation)", "polished metal grommets (specular hardware)"],
+      "predicted_failures": ["pieces merged into one dress (midriff covered)", "grommets rendered as flat dots", "symmetry imposed"],
+      "primary_stress": "prompt-builder (no 'set' type) + model (metal) + compositing (midriff skin)"
+    },
+    {
+      "id": "ref_16", "file": "ref_16.jpeg", "name": "Distressed Denim Moto Jacket", "type": "jacket", "layer": "over",
+      "materials": "charcoal distressed/frayed denim",
+      "construction": "structured peaked-lapel moto jacket, asymmetric front zip, corset lace-up panels on the front with long dangling laces, cropped peplum back",
+      "coverage": "covers torso and arms over the existing top; lower body stays as in the photo",
+      "difficulty": 5,
+      "hard_because": ["complex structured tailoring", "asymmetric zip + lapels", "long dangling laces (thin high-freq occluders)", "distress texture", "dark fabric folds", "outerwear layering"],
+      "predicted_failures": ["structure simplified to a plain jacket", "laces dropped or melted", "distress smoothed", "treated as swap"],
+      "primary_stress": "model (structure) + prompt-builder (layering)"
+    },
+    {
+      "id": "ref_17", "file": "ref_17.jpeg", "name": "Belt-Wrapped Distressed Jeans", "type": "trousers", "layer": "replace",
+      "materials": "mid-wash distressed denim; leather belt/strap detail",
+      "construction": "straight-leg jeans with a deconstructed belt/strap wrapped around the upper thigh and waist",
+      "coverage": "covers waist to ankle; upper body and shoes stay as in the photo",
+      "difficulty": 4,
+      "hard_because": ["deconstructed wrapped-belt detail (unusual)", "denim wash/distress texture fidelity", "lower-body-only swap"],
+      "predicted_failures": ["belt detail dropped or duplicated", "wash homogenized", "top accidentally changed"],
+      "primary_stress": "model (deconstruction) + prompt"
+    },
+    {
+      "id": "ref_18", "file": "ref_18.jpeg", "name": "Brown Paisley Wrap Mini Skirt", "type": "skirt", "layer": "replace",
+      "materials": "brown fabric with a tonal paisley/leaf print",
+      "construction": "asymmetric wrap mini skirt with a draped front overlap",
+      "coverage": "covers the hips to upper thigh (mini); upper body unchanged; legs below the skirt stay visible",
+      "difficulty": 4,
+      "hard_because": ["SKIRT type (no taxonomy support - would map to trousers and grow legs)", "asymmetric wrap drape", "tonal print"],
+      "predicted_failures": ["rendered as shorts/trousers", "wrap overlap flattened", "legs erased"],
+      "primary_stress": "prompt-builder (no 'skirt' type)"
+    },
+    {
+      "id": "ref_19", "file": "ref_19.jpeg", "name": "Banded Sequin-Hem Ruffle Mini Skirt", "type": "skirt", "layer": "replace",
+      "materials": "layered translucent chiffon in horizontal color bands (cream/yellow/coral/red); large red & yellow paillette sequins + organza ruffle at the hem",
+      "construction": "tiered ruffle mini skirt, horizontal banded colorway, sequin-and-ruffle hem",
+      "coverage": "covers hips to upper thigh; upper body unchanged; legs below stay visible",
+      "difficulty": 5,
+      "hard_because": ["SKIRT type", "horizontal color-band order must be preserved", "large hem paillettes (specular)", "translucent layered chiffon", "ruffle volume"],
+      "predicted_failures": ["band order scrambled", "sequins -> flat texture", "translucency lost", "rendered as trousers"],
+      "primary_stress": "prompt-builder (skirt) + model (sequins + translucency)"
+    },
+    {
+      "id": "ref_20", "file": "ref_20.jpeg", "name": "Embellished Distressed Bootcut Jeans", "type": "trousers", "layer": "replace",
+      "materials": "dark-wash denim; studs/embellishment; heavy distress and rips",
+      "construction": "low-rise bootcut jeans, ripped knees, embellished detailing",
+      "coverage": "covers waist to floor (bootcut over the shoe); upper body stays as in the photo",
+      "difficulty": 4,
+      "hard_because": ["heavy distress/rips fidelity", "stud embellishment (small specular)", "bootcut break over footwear"],
+      "predicted_failures": ["rips relocated or healed", "studs lost", "hem interaction with shoes wrong"],
+      "primary_stress": "model (distress detail)"
+    },
+    {
+      "id": "ref_21", "file": "ref_21.jpeg", "name": "Beaded Fringe Sheer Mini Skirt", "type": "skirt", "layer": "replace",
+      "materials": "sheer mauve mesh; purple 3D bead-flower embroidery; beaded fringe/tassel hem",
+      "construction": "sheer mesh mini skirt with floral beadwork and a dangling beaded fringe hem",
+      "coverage": "sheer skirt over the hips/upper thigh - skin shows through the mesh; upper body unchanged; legs below visible",
+      "difficulty": 5,
+      "hard_because": ["SKIRT type", "SHEER mesh over skin (transparency)", "3D bead flowers (specular)", "beaded fringe (thin dangling high-freq hem)", "visible brand label"],
+      "predicted_failures": ["mesh rendered opaque (no skin show-through)", "fringe melted/dropped", "beadwork flattened", "rendered as trousers"],
+      "primary_stress": "prompt-builder (skirt) + model (sheer + beadwork) + compositing (transparency)"
+    }
+  ]
+}

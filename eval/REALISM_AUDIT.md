@@ -160,3 +160,370 @@ quota, and they attack the two highest-impact causes (pixel re-synthesis and
 the composited-object look) plus the measurement blind spot. Items 10-11 are
 the long-term path to "truly photorealistic" if the hybrid ceiling proves too
 low.
+
+---
+
+# From diagnosis to implementation — roadmap status
+
+The audit above (the *diagnosis*, run `20260611-070715`) ranked a mitigation
+roadmap. A subsequent implementation sprint executed its top items and
+validated them. Status of every roadmap entry:
+
+| # | Roadmap item | Status | Where |
+| --- | --- | --- | --- |
+| 1 | **Pixel-preserving compositor** (diff-mask, paste original outside the edit, feathered seam) | **Shipped + validated** | [`backend/services/compositing.py`](../backend/services/compositing.py); A/B in [`eval/compositing_eval.py`](compositing_eval.py); Part I below |
+| 2 | **Model-tier A/B** (`gemini-3-pro-image`) | **Done** | Part III below — pro renders edit-region realism materially better but reframes unpredictably; gated by a new reframe guard |
+| 3 | **Edit-region grain + colour harmonization** | **Shipped** (global tone harmonization + grain match in the compositor) | Part I below |
+| 5 | **Region-aware metrics** (parity on the unchanged region) | **Shipped** | `preserved_region_parity()` in [`eval/metrics.py`](metrics.py); fixes D1 |
+| 6 | Hair re-occlusion module | Deferred (needs a matting model) | future roadmap |
+| 9 | Second-pass shadow/relight edit | **Tried → rejected** (no measurable gain) | Part III below |
+| 10–11 | Local VTON / inpainting | Deferred (GPU infra) | future roadmap |
+
+Two roadmap predictions were also independently re-confirmed on a fresh
+21-garment adversarial set (Part II) and an optimization-phase re-audit
+(Part III): prompt engineering has hit diminishing returns for edit-region
+integration, and the remaining ceiling is the model, not the pipeline. The
+detailed implementation, the adversarial stress results, and the rejected
+experiments follow.
+---
+
+# Part I — Implementation & validation (the compositor)
+
+## What the compositor does
+
+[`backend/services/compositing.py`](../backend/services/compositing.py) — a
+dependency-light (numpy + scipy + Pillow) post-process applied to every
+generation (config flag `TRYON_COMPOSITE`, default on; wired in
+[`backend/app.py`](../backend/app.py) and [`eval/run_eval.py`](run_eval.py)).
+
+Pipeline:
+
+1. **Resize** the model output onto the original photo's pixel grid.
+2. **Global tone harmonization** — fit a per-channel linear gain+bias on the
+   unchanged majority of pixels so the output's exposure/white balance matches
+   the input. Removes the global re-grade (the −0.7…−9.4 brightness drift) and
+   guarantees a tonally seamless boundary.
+3. **Change-mask extraction** — perceptual CIELAB ΔE between input and
+   harmonized output → blur → threshold → drop specks → fill holes → dilate.
+   The dilation deliberately captures the **contact shadow** the model drew on
+   the skin/table (the model's contact shadow), so the piece stays grounded.
+4. **Feather** the mask into a soft alpha (a seamless boundary).
+5. **Grain match** — re-inject sensor noise into the (denoised) edit region to
+   match the surrounding photo's grain inside the edit.
+6. **Composite**: `original·(1−α) + harmonized·α`.
+
+**Identity preservation is a *consequence*, not a stage:** the
+face is outside the change mask, so its pixels are the literal original — drift
+is impossible there. Likewise the background and untouched clothing.
+
+**Safety valves** (so the post-process can never beat the raw baseline
+downward): bail to the raw output if the mask is empty, if it covers more than
+75 % of the frame, or if the output's aspect ratio disagrees with the input
+(meaning the model re-cropped and the grids aren't comparable). Any exception
+in post-processing is caught and the raw image is returned.
+
+---
+
+## What was tried and rejected in the compositor (honest record)
+
+**Face-lock ROI.** The first iteration protected an elliptical facial region
+so the original face was always kept. Offline validation
+([compositing_eval.py](compositing_eval.py), alpha-overlay diagnostics) showed
+it **clipped the jewelry**: earrings attach at the lobe and necklaces rise to
+the collarbone, both close to a small face, so the ellipse erased parts of the
+piece — while adding nothing, because the ΔE threshold *already* excludes
+sub-threshold facial drift (the face simply isn't in the mask). It was removed.
+This is the rule the brief asked for in action: *a technique that cannot be
+validated to help is not merged.*
+
+Poisson blending, hair matting, and relighting are deferred for the reasons in
+the ranking table — each is either high-risk for these specific defects
+(Poisson vs. metal speculars) or a research-scale dependency we cannot validate
+within this architecture.
+
+---
+
+## Objective validation
+
+`python eval/compositing_eval.py` runs the post-process on the committed model
+outputs (**no API spend**), scores raw-vs-composite with the heuristics in
+[`metrics.py`](metrics.py), and renders before/after panels
+(`input | raw | composite | diff(raw) | diff(composite)`).
+
+Lower `border` (background preservation), `|bright|` (exposure drift) and
+`meanΔ` (overall disturbance) are better — they mean the output is closer to a
+real photo of the input person outside the edit.
+
+| case | edit | border (raw→comp) | bright (raw→comp) | meanΔ (raw→comp) |
+| --- | --- | --- | --- | --- |
+| necklace-cross-pendant | 1.7 % | 1.88 → **0.18** | −0.72 → **−0.39** | 2.79 → **0.71** |
+| earrings-gold-drop | 1.9 % | 1.79 → **0.18** | −0.57 → **+0.75** | 3.18 → **1.23** |
+| ring-three-stone-diamond | 0.5 % | 1.93 → **0.14** | −2.02 → **−0.06** | 1.87 → **0.33** |
+| bracelet-enamel-bangle | 3.7 % | 2.21 → **0.15** | −3.89 → **−1.77** | 4.01 → **2.39** |
+| clothing-breton-top | 7.8 % | 1.87 → **0.09** | −3.18 → **−1.66** | 6.11 → **4.72** |
+| clothing-green-wrap-dress | 16.2 % | 2.15 → **0.17** | −8.46 → **−6.90** | 14.61 → **12.88** |
+
+Across all cases: **background drift collapses to the JPEG floor** (border ~2 →
+~0.15) and **global exposure drift shrinks toward zero**, while the residual
+`meanΔ` is exactly the legitimate edit (the jewelry/garment itself). The
+remaining brightness residual on garments is the real garment being darker than
+what it replaced, not a defect.
+
+Committed evidence panels (the diff column is the proof — for the raw output the
+*whole person* lights up; for the composite, *only the jewelry/garment* does):
+
+- [necklace](../docs/realism/necklace-cross-pendant_before_after.jpg)
+- [earrings](../docs/realism/earrings-gold-drop_before_after.jpg)
+- [bracelet](../docs/realism/bracelet-enamel-bangle_before_after.jpg) (note the contact shadow is kept)
+- [wrap dress](../docs/realism/clothing-green-wrap-dress_before_after.jpg) (face + background restored across a large garment swap)
+
+---
+
+## Compositor: status & what is left
+
+**Fixed / materially improved:** the whole-image re-synthesis cause (identity,
+facial texture, background, exposure/grain drift) — the output is now provably a
+real photograph of the input person outside a tight, grounded edit region.
+
+**Still open (deferred with reasons):** metal-reflection realism (N1–N3) and
+hair depth-ordering (E1) inside the edit region; fabric microstructure on
+garment swaps (C2) — all still come from the model. These need
+relighting / matting models that are out of scope for the current single-call
+architecture and could not be validated cheaply; merging them speculatively
+would violate the project's own quality bar.
+
+This is, in our assessment, the highest practical realism achievable within the
+current architecture without adding a second generative model. The next genuine
+step up is a hybrid pipeline (segmentation + local inpainting or a matting
+model for hair), which is a project, not a patch.
+
+### Reproduce
+
+```bash
+python eval/compositing_eval.py     # offline A/B + panels (no API spend)
+python eval/run_eval.py --hard      # shipped pipeline (composite on)
+python eval/run_eval.py --hard --raw  # same prompts, compositing OFF (A/B)
+python -m pytest tests/test_compositing.py -q
+```
+
+---
+
+
+# Part II — Adversarial garment stress iteration
+
+The previous sections fixed the *common* case. This iteration deliberately
+attacked the pipeline with 21 hard real-world garments (structured jackets,
+hoodies, corsets, sequins, paillettes, beaded/figurative embroidery, satin,
+sheer mesh, feathers/fringe, polka dots, ombré, bubble hems, asymmetric
+two-pieces, skirts, distressed denim). They live in `eval/stress/refs/`
+(gitignored, user-supplied stress assets — *not* catalog items) and are
+catalogued with per-garment difficulty analysis in
+[`eval/stress_manifest.json`](stress_manifest.json).
+
+The goal was not to make these specific garments "work" but to use them to
+**expose architectural weaknesses simpler catalog items hide**, then fix the
+ones that can be validated.
+
+## Weaknesses found, by pipeline stage
+
+| Stage | Weakness exposed | Evidence | Fix |
+| --- | --- | --- | --- |
+| **Prompt / taxonomy** | Type set was `{top, dress, trousers}`. Skirts had to map to `trousers` (grows trouser legs over bare legs); jackets/hoodies to `top` (deletes the layer underneath); two-piece sets had no representation. | manifest: ref_15/18/19/21 (skirts, set), ref_01/02/16 (outerwear) | Added `skirt`, `jacket`, `set` types with correct fit physics + a `layer:"over"` mode so outerwear is worn over existing clothing, not swapped. |
+| **Prompt / materials** | Generic "reproduce the pattern" says nothing about *how a material reflects light*. Sequins, paillettes, satin, sheer fabric, beading, feathers, metal hardware are exactly what reads as AI-generated on a zoom-in. | manifest `primary_stress` = "model (specular/material)" on 12 of 21 | Keyword-triggered **material-physics** snippets (e.g. "each sequin is a tiny mirror reflecting the SAME scene lights"; "sheer = skin stays visible through it"). Additive: plain garments match nothing and don't regress. |
+| **Compositing / mask** | The colour-only (ΔE) change mask under-segments a garment whose colour ≈ what it replaced: region recall fell to **0.61** in a controlled test, leaving holes where the original bleeds through. | controlled experiment (smooth light-grey garment over the grey-tee base) | Added a second, OR'd **texture cue** (change in local luma stddev). Recall → 0.75 on the smooth case and ~1.0 when texture differs (sequins on a matching colour). Validated to add no background false-positives on the real outputs (border still ~0.15 vs ~2.0 raw). |
+| **Evaluation** | Global `noise_match`/`sharpness_match` over-flag patterned garments — a striped/sequined garment legitimately has more edge energy than the plain tee it replaced. | breton real output: global noise 1.38 / sharp 1.42 (both flag) | `preserved_region_parity()` measures grain/sharpness parity ONLY on the non-edited region (using the same two-cue mask). Breton preserved parity = **0.98 / 0.98** (clean) — confirms the over-flag was the garment, not a model defect. |
+
+## What was NOT changed (validated as already-robust)
+
+* **Tone harmonization on vivid/large garments.** Hypothesis: the global
+  per-channel gain+bias, fit on neutral pixels, would distort a large saturated
+  garment. A controlled test (vivid magenta garment, 16% of frame, with a model
+  regrade applied to the whole output) showed the composite **recovers the true
+  garment colour to within ~1-3/255** while removing the regrade from the
+  background (drift ~0). Only a *nonlinear* saturation boost leaves a small
+  residual; fixing that risks over-correcting plain garments, so it was left
+  alone. Evidence over intuition: no change merged.
+
+## Live sweep results (`gemini-3.1-flash-image`, 21 garments)
+
+The full sweep ran on `gemini-3.1-flash-image` (`python eval/stress_eval.py
+--all`). **20/21 generated; 1 model refusal.** Every composite's
+preserved-region noise/sharpness parity came back ~1.00 — the compositing stage
+disturbed nothing outside the edit on any garment. Curated panels and zooms are
+in [`docs/realism/stress/`](../docs/realism/stress) (full set regenerable into
+`eval/stress/runs/`).
+
+**The v3 prompt redesign is validated on real generations — the wins the simple
+catalog could never exercise:**
+
+* **Taxonomy / skirts** (ref_18/19/21) — render as skirts with the legs **bare
+  below the hem** and the existing tee preserved; no trouser-legs. The old
+  `trousers` mis-mapping is gone.
+* **Layering / outerwear** (ref_01 hoodie, ref_02 track jacket, ref_16 moto
+  jacket) — worn **over** the existing tee, which stays visible at the open
+  front/collar (clearest on ref_16). No underlayer deletion.
+* **Material physics holding up under zoom** — ref_13 paillettes render as
+  *individual overlapping discs with varied speculars* (not flat glitter);
+  ref_05 satin gown shows 3D orchid appliqués with gold centres + a satin sheen;
+  ref_10 bubble hem keeps its standalone balloon volume; ref_16 dangling laces
+  survive as thin elements; ref_02's 3-stripe trim and trefoil logo are legible
+  (all predicted to fail in the manifest).
+* **Compositing** — identity, background and grain are the original pixels on
+  every result; off-edit parity ~1.00 across all 20.
+* **Masked metric, confirmed on real data** — ref_09 (polka dot) trips the
+  *global* noise/sharp flag (1.54 / 1.69) while its *preserved-region* parity is
+  clean (1.00 / 1.01): the flag is the garment's legitimate edge energy, exactly
+  what `preserved_region_parity` was built to separate.
+
+**Remaining failures, attributed to stage (with evidence):**
+
+| Garment | Symptom | Origin | Prompt-fixable? |
+| --- | --- | --- | --- |
+| ref_15 (grommet two-piece, bare midriff/one-shoulder) | hard refusal, `finishReason=IMAGE_SAFETY` | **Model / content policy** — the revealing cut-out trips Nano Banana's people-safety filter | No. Surfaced as a clear user message; not a realism defect. |
+| ref_21, ref_07 (sheer mesh / organza) | fabric reads semi-opaque; leg/skin does not show through the mesh | **Model** | **Tested and rejected.** A deliberately strengthened "SEE-THROUGH, show more skin through it" instruction produced no measurable change in an A/B (both renders equally opaque). The instruction is correct; the model caps out. |
+| ref_14 (celestial metallic embroidery) | figurative motif reproduced loosely / impressionistically | **Model** fidelity ceiling on fine figurative beadwork | Marginal — the motif is anchored verbatim; the model approximates it. |
+| ref_03 (ombré) | bodice colour drifts toward silver vs the product's peach top | **Model** fidelity | Marginal. |
+
+**Conclusion.** On this adversarial set the realism ceiling is now set by the
+**model**, not the pipeline: structured garments, skirts, outerwear layering,
+sequins, satin, 3D appliqué, bubble hems and beadwork all render convincingly,
+and every preserved pixel is the original photograph. The residual defects are
+(a) a content-policy refusal, (b) sheer transparency, and (c) fine figurative
+fidelity — the first is policy, and the latter two were either A/B-tested to be
+prompt-insensitive or are anchored as strongly as the prompt channel allows.
+Further gains require a different model (or a hybrid segmentation/matting/
+inpainting stage), not another prompt or compositing tweak.
+
+### Reproduce (Part II)
+
+```bash
+python eval/stress_eval.py --all --dry-run   # build all 21 prompts, no API
+python eval/stress_eval.py --all             # full live sweep (needs key)
+python eval/stress_eval.py --ids ref_03,ref_13 --raw   # subset, compositing off
+python -m pytest tests/test_clothing_prompt_builder.py tests/test_compositing.py -q
+```
+
+---
+
+# Part III — Optimization phase: independent re-audit
+
+This pass started by trying to **disprove** the diagnosis's central claim ("prompt
+engineering is no longer the bottleneck; the remaining ceiling is the model").
+New live generations on `gemini-3.1-flash-image`, inspected at 400%.
+
+## A meta-critique of our own "validation"
+
+The "preserved-region parity ~= 1.00" headline from Part I is **partly
+circular**: by construction the composite copies the original pixels outside the
+mask, so of course their parity is ~1. That number proves the compositing does
+what it claims for the *outside*; it says **nothing** about whether the *edit
+region itself* (the actual jewelry/garment) is photorealistic, nor whether the
+seam is invisible. So the real remaining question is entirely about **what the
+model renders inside the mask** - which compositing never touches.
+
+## Visual audit: the dominant jewelry tell is grounding, not pixels
+
+Zooming every jewelry result (evidence:
+[`docs/realism/optimization/jewelry_synthetic_tells.jpg`](../docs/realism/optimization/jewelry_synthetic_tells.jpg))
+the four types share one family of tells, all **inside the edit region**:
+
+1. **Missing / weak contact shadows + ambient occlusion** -> the piece *floats*
+   (worst on the earring, which sits *on top of* the hair with no grounding).
+   This is the single most damaging tell.
+2. **Speculars too uniform / too bright** -> metal reads as clean studio gold,
+   ignoring the scene's soft, dim, directional light ("CGI gloss").
+3. No skin compression / occlusion where metal meets skin.
+
+These are **model-rendering** properties of the masked region. Compositing
+cannot help; only the model or the prompt can.
+
+## Experiments to attack the grounding tell (all measured)
+
+| # | Technique | Result | Decision |
+| --- | --- | --- | --- |
+| 1 | **Strengthened integration prompt** (front-loaded, concrete contact-shadow + exposure-clamp + scene-reflection rules) | Modest richer metal tonality, but the earring still floats AND the necklace pendant **drifted larger** (a fidelity regression). Evidence: [`ab_prompt_integration.jpg`](../docs/realism/optimization/ab_prompt_integration.jpg) | **Reject** - marginal + regression. |
+| 2 | **Deterministic contact-shadow / AO synthesis** (drop-shadow from the alpha mask + tight AO ring, multiplied onto skin) | Subtle, fragile, depends on a *guessed* light direction; barely visible on skin. Evidence: [`ab_contact_shadow_synth.jpg`](../docs/realism/optimization/ab_contact_shadow_synth.jpg) | **Reject** - not robustly measurable; direction-dependent regression risk. |
+| 3 | **Model refinement second pass** (feed the try-on back asking only for contact shadows + exposure clamp, then re-composite) | Looked better at a glance, but **measurement killed it**: contact-shadow annulus luma change was within noise (necklace -0.6, earrings +1.1 - lighter, not darker); highlight clamp negligible (205->202). The "improvement" was confirmation bias. Evidence: [`ab_refinement_pass.jpg`](../docs/realism/optimization/ab_refinement_pass.jpg) | **Reject** - no measurable gain, 2x quota, drift risk. |
+
+**Verdict on the big assumption:** I genuinely tried to disprove it and could
+not. Three independent attacks on the dominant tell - prompt, deterministic
+post-processing, and model self-refinement - each failed the measurable +
+no-regression bar. The diagnosis's conclusion stands and is now **more strongly
+evidenced**: edit-region integration is a **model** limit on
+`gemini-3.1-flash-image`.
+
+## The lever that DID move realism: a stronger model in the same family
+
+`gemini-3-pro-image` (same Nano Banana family, already selectable via
+`NANOBANANA_MODEL`) renders edit-region realism **materially better** - clearest
+on the earring (richer metal, real hair interaction, far less "glowing
+sticker"), with more dimensional detail on the necklace and a marginal edge on
+ring/bracelet. Evidence:
+[`ab_model_flash_vs_pro_face.jpg`](../docs/realism/optimization/ab_model_flash_vs_pro_face.jpg),
+[`ab_model_flash_vs_pro_hand.jpg`](../docs/realism/optimization/ab_model_flash_vs_pro_hand.jpg).
+
+**But pro has an unpredictable framing-drift failure mode**: on the necklace it
+zoomed into a close-up while keeping the 1:1 aspect (`border_preservation` 68.8
+vs flash's 2.2). It preserved framing on earrings/ring/bracelet. For a try-on
+product this matters - a reframe loses the "same photo of *this* person"
+guarantee. So pro is **not** a safe default; it is an opt-in quality/framing
+trade-off.
+
+## Implemented this phase: a background-reframe guard (the one merge)
+
+Discovering pro's within-aspect reframe exposed a real hole: the compositing
+safety net only bailed on *aspect-ratio* mismatch. A **within-aspect** zoom/pan
+(which pro does, and flash can do on a hard photo) slips through - a controlled
+8% zoom composited with `edit_fraction=0.43` (under the 0.75 bail) and baked
+silhouette **ghosting** into the background (border-strip drift 8.2 vs ~0 clean).
+
+Fix (`backend/services/compositing.py`): measure structural drift of the
+background (outside the edit) on a **blurred** copy - so it responds to content
+that *moved* (a reframe) and ignores high-frequency grain/denoise mismatch - and
+bail to the raw output above `bg_drift_max=3.0`.
+
+Validation (all four criteria):
+
+* **Measurable + clean separation:** faithful outputs 1.0-1.3, clothing large
+  edits 1.2, an 8% zoom 4.6, a full reframe 999 -> threshold 3.0 with margin.
+* **No regression:** every real jewelry + clothing output stays `applied=True`;
+  the synthetic-noise unit case (JPEG-base vs raw-model grain mismatch) scores
+  0.4, well clear.
+* **Reproducible:** deterministic; covered by `tests/test_compositing.py`
+  (`test_background_reframe_bails`, `test_faithful_output_is_not_flagged_as_reframe`).
+* **Visual:** prevents the ghosted composite on reframed outputs (the only case
+  it changes).
+
+## Final answer
+
+> **If this had to become the best open-source Nano-Banana virtual try-on, what
+> is still preventing it, and what is the highest-leverage next step?**
+
+The pipeline around the model is now strong: identity/background/grain are the
+original pixels (compositing), the edit is localized (two-cue mask), the framing
+is protected (aspect + reframe guards), garments are taxonomy/material/layering
+aware, and quality is measured, not asserted. **What still prevents production
+realism is the model's rendering *inside the edit region*** - contact shadows,
+scene-matched speculars and object grounding for jewelry; sheer transparency and
+fine figurative fidelity for clothing. We proved this is not prompt- or
+post-processing-fixable on the flash model (three rejected experiments).
+
+**Highest-leverage next step:** adopt `gemini-3-pro-image` as the rendering
+backend, gated by the framing guards shipped here. It is the only lever that
+measurably improved edit-region realism, it stays within Nano Banana, and the
+new reframe guard already makes its main failure mode (within-aspect zoom) safe
+- when pro reframes, the pipeline falls back to the raw output instead of
+ghosting. The remaining engineering is to convert that fallback into a **retry**
+(re-request with a tightened framing instruction, or fall back to flash) so
+pro's quality is captured without its framing cost. A heavier but higher-ceiling
+alternative is a hybrid stage - person/garment **segmentation + local
+relighting/matting** - to synthesize geometry-aware contact shadows that neither
+the prompt nor a generic post-filter can produce; that is a project, not a
+patch, and only worth it once pro's ceiling is exhausted.
+
+### Reproduce (Part III)
+
+```bash
+NANOBANANA_MODEL=gemini-3-pro-image python eval/run_eval.py --hard   # pro A/B
+python -m pytest tests/test_compositing.py -q                        # guards + mask
+```
