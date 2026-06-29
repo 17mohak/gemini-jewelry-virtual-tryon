@@ -349,9 +349,11 @@ ones that can be validated.
 The full sweep ran on `gemini-3.1-flash-image` (`python eval/stress_eval.py
 --all`). **20/21 generated; 1 model refusal.** Every composite's
 preserved-region noise/sharpness parity came back ~1.00 — the compositing stage
-disturbed nothing outside the edit on any garment. Curated panels and zooms are
-in [`docs/realism/stress/`](../docs/realism/stress) (full set regenerable into
-`eval/stress/runs/`).
+disturbed nothing outside the edit on any garment. The comparison panels embed
+the third-party reference photos, so they are **not committed**; regenerate them
+with `python eval/stress_eval.py --all` (writes to the gitignored
+`eval/stress/runs/`) once the reference images are sourced per
+[`eval/stress/refs/README.md`](stress/refs/README.md).
 
 **The v3 prompt redesign is validated on real generations — the wins the simple
 catalog could never exercise:**
